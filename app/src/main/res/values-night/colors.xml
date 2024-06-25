@@ -8,10 +8,10 @@
     <color name="white">#FFFFFFFF</color>
 
     <!-- MY USED COLORS -->
-    <color name="MainColor">@color/material_dynamic_primary40</color>
-    <color name="SecondaryColor">@color/material_dynamic_primary50</color>
-    <color name="AppBackgroundColor">@color/material_dynamic_primary90</color>
+    <color name="MainColor">@color/material_dynamic_primary50</color>
+    <color name="SecondaryColor">@color/material_dynamic_secondary20</color>
+    <color name="AppBackgroundColor">@color/material_dynamic_neutral10</color>
     <color name="TextColorTitle">@color/material_dynamic_secondary90</color>
-    <color name="TextColor">@color/material_dynamic_secondary20</color>
+    <color name="TextColor">@color/material_dynamic_secondary80</color>
 
 </resources>

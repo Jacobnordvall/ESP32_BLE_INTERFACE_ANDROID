@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.ESP32_BLE_INTERFACE_ANDROID" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.ESP32_BLE_INTERFACE_ANDROID" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/purple_200</item>
         <item name="colorPrimaryVariant">@color/MainColor</item>
@@ -9,9 +9,12 @@
         <item name="colorSecondary">@color/teal_200</item>
         <item name="colorSecondaryVariant">@color/teal_200</item>
         <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
+
+        <!--  <item name="android:windowTranslucentStatus">true</item> -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
         <item name="android:windowTranslucentNavigation">true</item>
+        <item name="android:windowBackground">@color/AppBackgroundColor</item>
+
+
     </style>
 </resources>

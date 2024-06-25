@@ -23,7 +23,7 @@
         android:id="@+id/constraintLayout"
         android:layout_width="411dp"
         android:layout_height="87dp"
-        android:background="@drawable/roundstyle"
+        android:background="@drawable/rounded_top_header"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
@@ -40,7 +40,7 @@
             android:singleLine="true"
             android:text="@string/app_name"
             android:textAlignment="center"
-            android:textColor="@color/white"
+            android:textColor="@color/TextColorTitle"
             android:textSize="17sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -49,5 +49,46 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintVertical_bias="1.0" />
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <Button
+        android:id="@+id/button3"
+        android:layout_width="405dp"
+        android:layout_height="60dp"
+        android:background="@drawable/rounded_buttons"
+        android:text="@string/Row1Button1"
+        android:textColor="@color/TextColor"
+        app:layout_constraintBottom_toTopOf="@+id/sample_text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/button2"
+        app:layout_constraintVertical_bias="0.03" />
+
+    <Button
+        android:id="@+id/button2"
+        android:layout_width="405dp"
+        android:layout_height="60dp"
+        android:background="@drawable/rounded_buttons"
+        android:text="@string/Row1Button0"
+        android:textColor="@color/TextColor"
+        app:layout_constraintBottom_toTopOf="@+id/sample_text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/constraintLayout"
+        app:layout_constraintVertical_bias="0.243" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="334dp"
+        android:layout_height="31dp"
+        android:text="@string/Row1Title"
+        android:textAlignment="center"
+        android:textColor="@color/TextColor"
+        android:textSize="22sp"
+        app:layout_constraintBottom_toTopOf="@+id/button2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.506"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/constraintLayout"
+        app:layout_constraintVertical_bias="1.0" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
