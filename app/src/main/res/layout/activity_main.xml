@@ -22,7 +22,7 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintLayout"
         android:layout_width="411dp"
-        android:layout_height="56dp"
+        android:layout_height="76dp"
         android:background="@drawable/rounded_top_header"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -47,7 +47,7 @@
             app:layout_constraintHorizontal_bias="0.487"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.77" />
+            app:layout_constraintVertical_bias="0.87" />
 
         <ImageButton
             android:id="@+id/imageButton"
@@ -55,9 +55,9 @@
             android:layout_height="48dp"
             android:background="@android:color/transparent"
             android:contentDescription="@string/app_name"
+            android:onClick="ClickSave"
             android:scaleX="1.2"
             android:scaleY="1.2"
-            android:onClick="ClickSave"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.85"
@@ -72,9 +72,9 @@
             android:layout_height="48dp"
             android:background="@android:color/transparent"
             android:contentDescription="@string/app_name"
+            android:onClick="ClickReload"
             android:scaleX="1.25"
             android:scaleY="1.25"
-            android:onClick="ClickReload"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.15"
