@@ -40,7 +40,7 @@
             android:singleLine="true"
             android:text="@string/app_name"
             android:textAlignment="center"
-            android:textColor="@color/TextColorTitle"
+            android:textColor="@color/TextColorHeader"
             android:textSize="17sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -52,29 +52,29 @@
 
     <Button
         android:id="@+id/button3"
-        android:layout_width="405dp"
+        android:layout_width="170dp"
         android:layout_height="60dp"
-        android:background="@drawable/rounded_buttons"
+        android:layout_marginStart="1dp"
+        android:layout_marginBottom="260dp"
+        android:background="@drawable/button_right"
         android:text="@string/Row1Button1"
         android:textColor="@color/TextColor"
         app:layout_constraintBottom_toTopOf="@+id/sample_text"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/button2"
-        app:layout_constraintVertical_bias="0.03" />
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toEndOf="@+id/button2" />
 
     <Button
         android:id="@+id/button2"
-        android:layout_width="405dp"
+        android:layout_width="170dp"
         android:layout_height="60dp"
-        android:background="@drawable/rounded_buttons"
+        android:layout_marginStart="35dp"
+        android:layout_marginBottom="260dp"
+        android:background="@drawable/button_left"
         android:text="@string/Row1Button0"
         android:textColor="@color/TextColor"
         app:layout_constraintBottom_toTopOf="@+id/sample_text"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/constraintLayout"
-        app:layout_constraintVertical_bias="0.243" />
+        app:layout_constraintStart_toStartOf="parent" />
 
     <TextView
         android:id="@+id/textView"
@@ -82,13 +82,13 @@
         android:layout_height="31dp"
         android:text="@string/Row1Title"
         android:textAlignment="center"
-        android:textColor="@color/TextColor"
+        android:textColor="@color/TextColorTitle"
         android:textSize="22sp"
         app:layout_constraintBottom_toTopOf="@+id/button2"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.506"
+        app:layout_constraintHorizontal_bias="0.493"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/constraintLayout"
-        app:layout_constraintVertical_bias="1.0" />
+        app:layout_constraintVertical_bias="0.915" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

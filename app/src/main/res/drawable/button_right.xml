@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <corners android:radius="16dp"/> <!-- Change the radius value as needed -->
+    <corners android:topRightRadius="16dp" android:bottomRightRadius="16dp"/>
+
     <solid android:color="@color/SecondaryColor" />
     <padding
         android:left="10dp"
@@ -10,4 +11,3 @@
         android:bottom="10dp"/>
 
 </shape>
-
