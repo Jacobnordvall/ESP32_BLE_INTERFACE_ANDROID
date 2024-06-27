@@ -24,7 +24,7 @@
 
     <TextView
         android:id="@+id/textView2"
-        android:layout_width="241dp"
+        android:layout_width="282dp"
         android:layout_height="110dp"
         android:contentDescription="@string/app_name"
         android:text="@string/permissions_title"
