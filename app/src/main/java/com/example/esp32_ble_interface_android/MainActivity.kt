@@ -13,9 +13,11 @@ import androidx.core.content.ContextCompat
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
-
+import android.content.Intent
 
 class MainActivity : AppCompatActivity() {
+
+    private val REQUEST_ENABLE_BT = 1
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions())
     {
@@ -48,11 +50,8 @@ class MainActivity : AppCompatActivity() {
         // Check if Bluetooth permissions are granted
         if (!hasPermissions())
         { requestPermissions() }
-        else
-        {
-            // Permissions already granted
-            // Proceed with your Bluetooth functionality here
-        }
+        //if bluetooth is off: turn it on?
+        RequestBluetoothOn()
 
 
     }
@@ -118,6 +117,24 @@ class MainActivity : AppCompatActivity() {
         )
         permissionLauncher.launch(permissions)
     }
+
+
+    //BLE==============================================================================================================
+
+    private fun RequestBluetoothOn()
+    {
+        val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
+        if (bluetoothAdapter == null) {
+            // Device doesn't support Bluetooth
+            return
+        }
+        if (!bluetoothAdapter.isEnabled) {
+            // Bluetooth is not enabled, prompt the user to enable it
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
+        }
+    }
+
 
 
 }
