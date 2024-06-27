@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:foregroundTint="#FFFFFF"
     android:textAlignment="center"
     tools:context=".MainActivity">
 
@@ -87,13 +88,14 @@
     <Button
         android:id="@+id/button3"
         android:layout_width="170dp"
-        android:layout_height="60dp"
+        android:layout_height="50dp"
         android:layout_marginStart="1dp"
         android:layout_marginBottom="260dp"
         android:background="@drawable/button_right"
+        android:backgroundTint="@color/MainColor"
+        android:onClick="ClickWrite"
         android:text="@string/Row1Button1"
         android:textColor="@color/TextColor"
-        android:onClick="ClickWrite"
         app:layout_constraintBottom_toTopOf="@+id/sample_text"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
@@ -102,13 +104,14 @@
     <Button
         android:id="@+id/button2"
         android:layout_width="170dp"
-        android:layout_height="60dp"
+        android:layout_height="50dp"
         android:layout_marginStart="35dp"
         android:layout_marginBottom="260dp"
         android:background="@drawable/button_left"
+        android:backgroundTint="@color/MainColor"
+        android:onClick="ClickReceive"
         android:text="@string/Row1Button0"
         android:textColor="@color/TextColor"
-        android:onClick="ClickReceive"
         app:layout_constraintBottom_toTopOf="@+id/sample_text"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -119,12 +122,12 @@
         android:text="@string/Row1Title"
         android:textAlignment="center"
         android:textColor="@color/TextColorTitle"
-        android:textSize="22sp"
+        android:textSize="20sp"
         app:layout_constraintBottom_toTopOf="@+id/button2"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.493"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/constraintLayout"
-        app:layout_constraintVertical_bias="0.915" />
+        app:layout_constraintVertical_bias="1.0" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

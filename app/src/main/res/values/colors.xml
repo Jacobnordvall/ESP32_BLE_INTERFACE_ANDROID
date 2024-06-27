@@ -14,6 +14,6 @@
 
     <color name="TextColorHeader">@color/material_dynamic_primary100</color>
     <color name="TextColorTitle">@color/material_dynamic_primary0</color>
-    <color name="TextColor">@color/material_dynamic_secondary0</color>
+    <color name="TextColor">@color/material_dynamic_secondary99</color>
 
 </resources>

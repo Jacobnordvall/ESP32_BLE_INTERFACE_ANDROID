@@ -9,7 +9,7 @@
 
     <!-- MY USED COLORS -->
     <color name="MainColor">@color/material_dynamic_primary40</color>
-    <color name="SecondaryColor">@color/material_dynamic_neutral20</color>
+    <color name="SecondaryColor">@color/material_dynamic_neutral10</color>
     <color name="AppBackgroundColor">@color/material_dynamic_neutral10</color>
 
     <color name="TextColorHeader">@color/material_dynamic_primary100</color>
