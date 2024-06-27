@@ -79,7 +79,7 @@ class PermissionScreen : AppCompatActivity() {
 
     //BUTTONS==================================================================================================================
 
-    fun goToMainScren(view: View)
+    fun goToMainScreen(view: View)
     {
         statusBluetooth()
     }

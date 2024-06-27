@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">ESP32_BLE_INTERFACE</string>
+    <string name="permissions_title">Necessary Permissions</string>
+    <string name="permissions_text">Accept permissions</string>
+    <string name="bluetooth_text">turn on Bluetooth</string>
+    <string name="permissions_skip">stuck?</string>
+
     <string name="Row1Title">BLE Receive/Write</string>
     <string name="Row1Button0">RECEIVE</string>
     <string name="Row1Button1">WRITE</string>
