@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.*
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import android.os.Build
 
 
 class PermissionScreen : AppCompatActivity() {
@@ -69,7 +70,6 @@ class PermissionScreen : AppCompatActivity() {
         if(!ALL_DONE)
         {
             ALL_DONE = true
-            Log.d("FINISHED", "INISHED: ")
             val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
             finish() // Optional: finish() current activity if not needed anymore
@@ -112,18 +112,24 @@ class PermissionScreen : AppCompatActivity() {
                 ContextCompat.checkSelfPermission(this,
                     Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+                    Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
     }
 
     private fun requestPermissions()
     {
-        val permissions = arrayOf(
-            Manifest.permission.BLUETOOTH,
-            Manifest.permission.BLUETOOTH_ADMIN,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        )
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN
+            )
+        }
+        else {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_ADMIN,
+                Manifest.permission.BLUETOOTH,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        }
         permissionLauncher.launch(permissions)
     }
 
