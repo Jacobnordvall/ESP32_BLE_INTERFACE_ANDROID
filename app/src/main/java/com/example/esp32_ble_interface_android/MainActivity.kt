@@ -7,10 +7,7 @@ import android.widget.Toast
 import com.example.esp32_ble_interface_android.databinding.ActivityMainBinding
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.BluetoothDevice
@@ -19,21 +16,7 @@ import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
-import kotlinx.coroutines.*
 import android.util.Log
-import android.content.Intent
-import androidx.activity.enableEdgeToEdge
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import android.app.Activity
-import android.net.Uri
-import android.provider.Settings
-import kotlinx.coroutines.delay
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
 
 
 class MainActivity : AppCompatActivity() {
@@ -41,11 +24,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
     private lateinit var bluetoothManager: BluetoothManager
-    private val scanner: BluetoothLeScanner
-        get() = bluetoothManager.adapter.bluetoothLeScanner
-
+    private val scanner: BluetoothLeScanner get() = bluetoothManager.adapter.bluetoothLeScanner
     private var selectedDevice: BluetoothDevice? = null
-
+    private var gatt: BluetoothGatt? = null
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -61,6 +42,7 @@ class MainActivity : AppCompatActivity() {
         bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
             ?: throw Exception("Bluetooth is not supported by this device")
 
+        startScanning()
     }
     /**
      * A native method that is implemented by the 'esp32_ble_interface_android' native library,
@@ -80,22 +62,22 @@ class MainActivity : AppCompatActivity() {
 
 
     //MAKES TOAST POPUPS FOR EACH BUTTON PRESS.
-    fun showToast(message: String)
+    private fun showToast(message: String)
     { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
 
-    fun ClickWrite(view: View)
+    fun clickWrite(view: View)
     { showToast("Clicked Write!") }
 
-    fun ClickReceive(view: View)
+    fun clickReceive(view: View)
+    { showToast("Clicked Receive!")  }
+
+    fun clickReload(view: View)
     {
-        showToast("Clicked Receive!")
+        showToast("Clicked Reload!")
         startScanning()
     }
 
-    fun ClickReload(view: View)
-    { showToast("Clicked Reload!") }
-
-    fun ClickSave(view: View)
+    fun clickSave(view: View)
     { showToast("Clicked Save!") }
 
 
@@ -126,7 +108,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun startScanning() {
+    private fun startScanning() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
             //Log.w("BLE_SCAN", "Bluetooth scan permission not granted")
             // Request the missing permissions
@@ -143,11 +125,8 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    //Our connection to the selected device
-    private var gatt: BluetoothGatt? = null
-
     //Whatever we do with our Bluetooth device connection, whether now or later, we will get the
-//results in this callback object, which can become massive.
+    //results in this callback object, which can become massive.
     private val callback = object: BluetoothGattCallback() {
         //We will override more methods here as we add functionality.
 
@@ -164,6 +143,11 @@ class MainActivity : AppCompatActivity() {
             if (newState == BluetoothGatt.STATE_CONNECTED) {
                 //TODO: handle the fact that we've just connected
                 Log.d("BLE_SCAN", "Connected...")
+            }
+            if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                //TODO: handle the fact that we've just disconnected
+                Log.d("BLE_SCAN", "Disconnected...")
+                startScanning()
             }
         }
     }
