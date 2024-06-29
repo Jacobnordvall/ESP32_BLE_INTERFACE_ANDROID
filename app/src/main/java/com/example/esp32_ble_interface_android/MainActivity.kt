@@ -16,6 +16,7 @@ import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 
 
@@ -81,6 +82,16 @@ class MainActivity : AppCompatActivity() {
     { showToast("Clicked Save!") }
 
 
+    //NAVIGATION===============================================================================================================
+
+    private fun goBackToPermissionPage()
+    {
+        val intent = Intent(this, PermissionScreen::class.java)
+        startActivity(intent)
+        finish() // Optional: finish() current activity if not needed anymore
+    }
+
+
     //BLUETOOTH================================================================================================================
 
     private val scanCallback = object : ScanCallback() {
@@ -112,7 +123,8 @@ class MainActivity : AppCompatActivity() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
             //Log.w("BLE_SCAN", "Bluetooth scan permission not granted")
             // Request the missing permissions
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_SCAN), 1)
+            //ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_SCAN), 1)
+            goBackToPermissionPage()
             return
         }
         //Log.d("BLE_SCAN", "Starting scan...")
@@ -121,6 +133,12 @@ class MainActivity : AppCompatActivity() {
 
     fun stopScanning() {
         Log.d("BLE_SCAN", "Stopping scan...")
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
+        {
+            // here to request the missing permissions, and then overriding
+            goBackToPermissionPage()
+            return
+        }
         scanner.stopScan(scanCallback)
     }
 
@@ -153,6 +171,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun connect() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
+        {
+            // here to request the missing permissions, and then overriding
+            goBackToPermissionPage()
+            return
+        }
         selectedDevice?.connectGatt(this, false, callback) ?: Log.e("BLE_CONNECT", "Selected device is null")
     }
 
