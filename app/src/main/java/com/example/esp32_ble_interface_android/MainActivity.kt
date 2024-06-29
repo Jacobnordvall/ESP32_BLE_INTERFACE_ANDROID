@@ -14,6 +14,8 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
@@ -112,6 +114,7 @@ class MainActivity : AppCompatActivity() {
                 if (deviceName == "ESP32") {
                     selectedDevice = it.device
                     Log.d("BLE_SCAN", "Selected device: $deviceName")
+                    connect()
                     stopScanning()
                 }
             }
@@ -138,4 +141,35 @@ class MainActivity : AppCompatActivity() {
         Log.d("BLE_SCAN", "Stopping scan...")
         scanner.stopScan(scanCallback)
     }
+
+
+    //Our connection to the selected device
+    private var gatt: BluetoothGatt? = null
+
+    //Whatever we do with our Bluetooth device connection, whether now or later, we will get the
+//results in this callback object, which can become massive.
+    private val callback = object: BluetoothGattCallback() {
+        //We will override more methods here as we add functionality.
+
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            super.onConnectionStateChange(gatt, status, newState)
+            //This tells us when we're connected or disconnected from the peripheral.
+
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                //TODO: handle error
+                Log.d("BLE_SCAN", "Error on connecting...")
+                return
+            }
+
+            if (newState == BluetoothGatt.STATE_CONNECTED) {
+                //TODO: handle the fact that we've just connected
+                Log.d("BLE_SCAN", "Connected...")
+            }
+        }
+    }
+
+    fun connect() {
+        selectedDevice?.connectGatt(this, false, callback) ?: Log.e("BLE_CONNECT", "Selected device is null")
+    }
+
 }
