@@ -92,6 +92,17 @@ class MainActivity : AppCompatActivity() {
         finish() // Optional: finish() current activity if not needed anymore
     }
 
+
+    //HELPER FUNCTIONS=========================================================================================================
+
+    fun String.decodeHex(): String {
+        require(length % 2 == 0) {"Must have an even length"}
+        return chunked(2)
+            .map { it.toInt(16).toByte() }
+            .toByteArray()
+            .toString(Charsets.ISO_8859_1)  // Or whichever encoding your input uses
+    }
+
     //BLUETOOTH================================================================================================================
 
     private val scanCallback = object : ScanCallback() {
@@ -182,7 +193,7 @@ class MainActivity : AppCompatActivity() {
             super.onCharacteristicChanged(gatt, characteristic)
             val data = characteristic.value
             Log.d("BLE_NOTIFY", "Notification received from ${characteristic.uuid}: ${data.toHexString()}")
-            val text = "Received: " + data.toHexString()
+            var text = "Received: " + data.toHexString().decodeHex()
             binding.TextForDebug.text = text
         }
     }
