@@ -14,6 +14,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
@@ -21,7 +22,6 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import java.util.UUID
-
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,7 +33,6 @@ class MainActivity : AppCompatActivity() {
     private var gatt: BluetoothGatt? = null
     private var services: List<BluetoothGattService> = emptyList()
 
-
     override fun onCreate(savedInstanceState: Bundle?)
     {
         super.onCreate(savedInstanceState)
@@ -44,12 +43,12 @@ class MainActivity : AppCompatActivity() {
         // Example of a call to a native method
         binding.sampleText.text = stringFromJNI()
 
-
         bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
             ?: throw Exception("Bluetooth is not supported by this device")
 
         startScanning()
     }
+
     /**
      * A native method that is implemented by the 'esp32_ble_interface_android' native library,
      * which is packaged with this application.
@@ -63,9 +62,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     //BUTTON CLICKS============================================================================================================
-
 
     //MAKES TOAST POPUPS FOR EACH BUTTON PRESS.
     private fun showToast(message: String)
@@ -86,7 +83,6 @@ class MainActivity : AppCompatActivity() {
     fun clickSave(view: View)
     { showToast("Clicked Save!") }
 
-
     //NAVIGATION===============================================================================================================
 
     private fun goBackToPermissionPage()
@@ -95,7 +91,6 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
         finish() // Optional: finish() current activity if not needed anymore
     }
-
 
     //BLUETOOTH================================================================================================================
 
@@ -106,8 +101,6 @@ class MainActivity : AppCompatActivity() {
             result?.let {
                 val deviceName = it.scanRecord?.deviceName
                 val deviceAddress = it.device.address
-
-                //Log.d("BLE_SCAN", "Found device: $deviceName, Address: $deviceAddress")
 
                 if (deviceName == "ESP32") {
                     selectedDevice = it.device
@@ -120,62 +113,43 @@ class MainActivity : AppCompatActivity() {
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            //Log.e("BLE_SCAN", "Scan failed with error code: $errorCode")
         }
     }
 
     private fun startScanning() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-            //Log.w("BLE_SCAN", "Bluetooth scan permission not granted")
-            // Request the missing permissions
-            //ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.BLUETOOTH_SCAN), 1)
             goBackToPermissionPage()
             return
         }
-        //Log.d("BLE_SCAN", "Starting scan...")
         scanner.startScan(scanCallback)
     }
 
     fun stopScanning() {
         Log.d("BLE_SCAN", "Stopping scan...")
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
-        {
-            // here to request the missing permissions, and then overriding
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
             goBackToPermissionPage()
             return
         }
         scanner.stopScan(scanCallback)
     }
 
-
-    //Whatever we do with our Bluetooth device connection, whether now or later, we will get the
-    //results in this callback object, which can become massive.
     private val callback = object: BluetoothGattCallback() {
-        //We will override more methods here as we add functionality.
-
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             super.onConnectionStateChange(gatt, status, newState)
-            //This tells us when we're connected or disconnected from the peripheral.
 
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                //TODO: handle error
                 Log.d("BLE_SCAN", "Error on connecting...")
                 return
             }
             if (newState == BluetoothGatt.STATE_CONNECTED) {
-                //TODO: handle the fact that we've just connected
                 Log.d("BLE_SCAN", "Connected...")
-
-                // Ensure we have the necessary permissions before discovering services
                 if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // Here to request the missing permissions, and then overriding
                     goBackToPermissionPage()
                     return
                 }
                 gatt.discoverServices()
             }
             if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                //TODO: handle the fact that we've just disconnected
                 Log.d("BLE_SCAN", "Disconnected...")
                 startScanning()
             }
@@ -184,7 +158,8 @@ class MainActivity : AppCompatActivity() {
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int)
         {
             super.onServicesDiscovered(gatt, status)
-            if (status == BluetoothGatt.GATT_SUCCESS) {
+            if (status == BluetoothGatt.GATT_SUCCESS)
+            {
                 services = gatt.services
                 Log.d("BLE_SERVICES", "Services discovered:")
                 services.forEach { service ->
@@ -194,27 +169,50 @@ class MainActivity : AppCompatActivity() {
                         Log.d("BLE_SERVICES", "  Properties: ${characteristic.properties}")
                     }
                 }
+
+                // Assuming you know the UUID of the characteristic you want to enable notifications for
+                val characteristicUUID = UUID.fromString("a9248655-7f1b-4e18-bf36-ad1ee859983f")
+                enableNotifications(gatt, characteristicUUID)
             } else {
                 Log.w("BLE_SERVICES", "onServicesDiscovered received: $status")
             }
         }
 
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            super.onCharacteristicChanged(gatt, characteristic)
+            val data = characteristic.value
+            Log.d("BLE_NOTIFY", "Notification received from ${characteristic.uuid}: ${data.toHexString()}")
+            val text = "Received: " + data.toHexString()
+            binding.TextForDebug.text = text
+        }
     }
 
     fun connect() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-        {
-            // here to request the missing permissions, and then overriding
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
             goBackToPermissionPage()
             return
         }
         selectedDevice?.connectGatt(this, false, callback) ?: Log.e("BLE_CONNECT", "Selected device is null")
     }
 
+    private fun enableNotifications(gatt: BluetoothGatt, characteristicUUID: UUID) {
+        val characteristic = gatt.services.flatMap { it.characteristics }
+            .find { it.uuid == characteristicUUID }
+        if (characteristic != null) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
+            {
+                goBackToPermissionPage()
+                return
+            }
+            gatt.setCharacteristicNotification(characteristic, true)
+            val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+            descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            gatt.writeDescriptor(descriptor)
+            Log.d("BLE_NOTIFY", "Notifications enabled for characteristic: $characteristicUUID")
+        } else {
+            Log.w("BLE_NOTIFY", "Characteristic $characteristicUUID not found")
+        }
+    }
 
-
-
-
-
-
+    private fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
 }
