@@ -13,11 +13,14 @@ import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattService
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import java.util.UUID
 
 
 class MainActivity : AppCompatActivity() {
@@ -28,6 +31,8 @@ class MainActivity : AppCompatActivity() {
     private val scanner: BluetoothLeScanner get() = bluetoothManager.adapter.bluetoothLeScanner
     private var selectedDevice: BluetoothDevice? = null
     private var gatt: BluetoothGatt? = null
+    private var services: List<BluetoothGattService> = emptyList()
+
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -157,10 +162,17 @@ class MainActivity : AppCompatActivity() {
                 Log.d("BLE_SCAN", "Error on connecting...")
                 return
             }
-
             if (newState == BluetoothGatt.STATE_CONNECTED) {
                 //TODO: handle the fact that we've just connected
                 Log.d("BLE_SCAN", "Connected...")
+
+                // Ensure we have the necessary permissions before discovering services
+                if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    // Here to request the missing permissions, and then overriding
+                    goBackToPermissionPage()
+                    return
+                }
+                gatt.discoverServices()
             }
             if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                 //TODO: handle the fact that we've just disconnected
@@ -168,6 +180,25 @@ class MainActivity : AppCompatActivity() {
                 startScanning()
             }
         }
+
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int)
+        {
+            super.onServicesDiscovered(gatt, status)
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                services = gatt.services
+                Log.d("BLE_SERVICES", "Services discovered:")
+                services.forEach { service ->
+                    Log.d("BLE_SERVICES", "Service UUID: ${service.uuid}")
+                    service.characteristics.forEach { characteristic ->
+                        Log.d("BLE_SERVICES", "  Characteristic UUID: ${characteristic.uuid}")
+                        Log.d("BLE_SERVICES", "  Properties: ${characteristic.properties}")
+                    }
+                }
+            } else {
+                Log.w("BLE_SERVICES", "onServicesDiscovered received: $status")
+            }
+        }
+
     }
 
     fun connect() {
@@ -179,5 +210,11 @@ class MainActivity : AppCompatActivity() {
         }
         selectedDevice?.connectGatt(this, false, callback) ?: Log.e("BLE_CONNECT", "Selected device is null")
     }
+
+
+
+
+
+
 
 }

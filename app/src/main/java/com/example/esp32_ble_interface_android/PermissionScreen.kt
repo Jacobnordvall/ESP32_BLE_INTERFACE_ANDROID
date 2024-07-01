@@ -104,32 +104,18 @@ class PermissionScreen : AppCompatActivity() {
     private fun hasPermissions(): Boolean
     {
         return (ContextCompat.checkSelfPermission(this,
-            Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED &&
+            Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
-                ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+                    Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED)
     }
 
     private fun requestPermissions()
     {
-        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val permissions =
             arrayOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_SCAN
             )
-        }
-        else {
-            arrayOf(
-                Manifest.permission.BLUETOOTH_ADMIN,
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        }
         permissionLauncher.launch(permissions)
     }
 
