@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">ESP32_BLE_INTERFACE</string>
     <string name="permissions_title">Necessary Permissions</string>
-    <string name="permissions_description">Why does this app need location?\n\n<b>ANDROID</b> Requires location access for BLE,\nBecause BLE <b>could</b> be used for geolocation</string>
+    <string name="permissions_description">Does this app track your location?\n\nThis app does <b>not</b> do geolocation in <b>any form or shape</b>. \nThis is sadly not the norm for most BLE apps, be safe.</string>
     <string name="permissions_text">Accept permissions</string>
     <string name="bluetooth_text">turn on Bluetooth</string>
     <string name="permissions_skip">stuck?</string>

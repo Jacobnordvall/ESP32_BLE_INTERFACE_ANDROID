@@ -1,27 +1,26 @@
 package com.example.esp32_ble_interface_android
 
 import android.Manifest
+import android.app.Activity
 import android.bluetooth.BluetoothAdapter
-import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.view.View
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import android.app.Activity
 import android.net.Uri
+import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.*
+import android.view.View
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.os.Build
 
 
 class PermissionScreen : AppCompatActivity() {
@@ -84,17 +83,19 @@ class PermissionScreen : AppCompatActivity() {
         statusBluetooth()
     }
 
-    fun openAppInfo(view: View)
-    {
-        val packageUri = Uri.fromParts("package", packageName, null)
-        val appInfoIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri)
-        startActivity(appInfoIntent)
-
+    fun openAppInfo(view: View) {
+        Log.d("PermissionScreenButtons", "openAppInfo clicked")
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val uri = Uri.fromParts("package", packageName, null)
+        intent.setData(uri)
+        startActivity(intent)
     }
 
-    fun openBluetoothSettings(view: View)
-    {
+    fun openBluetoothSettings(view: View) {
+        Log.d("PermissionScreenButtons", "openBluetoothSettings clicked")
         val bluetoothIntent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
+        bluetoothIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(bluetoothIntent)
     }
 
