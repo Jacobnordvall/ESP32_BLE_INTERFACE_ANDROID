@@ -79,10 +79,14 @@ class MainActivity : AppCompatActivity() {
     { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
 
     fun clickWrite(view: View)
-    { showToast("Clicked Write!") }
+    {
+        showToast("Clicked Write!")
+    }
 
     fun clickReceive(view: View)
-    { showToast("Clicked Receive!")  }
+    {
+        showToast("Clicked Receive!")
+    }
 
     fun clickReload(view: View)
     {
@@ -211,10 +215,9 @@ class MainActivity : AppCompatActivity() {
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             super.onCharacteristicChanged(gatt, characteristic)
-            val data = characteristic.value
-            Log.d("BLE_NOTIFY", "Notification received from ${characteristic.uuid}: ${data.toHexString().decodeHex()}")
-            val text = "Received: " + data.toHexString().decodeHex()
-            handleData(text)
+            val data = characteristic.value.toHexString().decodeHex()
+            Log.d("BLE_NOTIFY", "Notification received from ${characteristic.uuid}: $data")
+            handleData(data)
         }
     }
 
@@ -247,13 +250,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /* WRITING DATA
+    Service UUID:
+    35e2384d-09ba-40ec-8cc2-a491e7bcd763
+
+    Characteristic UUID:
+    9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36
+    */
+
 
 
     //HANDLE DATA==============================================================================================================
 
-    fun handleData(data :String)
+    fun handleData(data :String) //data is already decoded and turned into a int string.
     {
-        binding.TextForDebug.text = data
+        binding.TextForDebug.text = buildString { append("Received: "); append(data) }
 
 
 
