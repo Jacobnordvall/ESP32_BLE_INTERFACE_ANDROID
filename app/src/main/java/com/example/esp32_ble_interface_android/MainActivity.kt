@@ -1,27 +1,28 @@
 package com.example.esp32_ble_interface_android
 
-import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import android.view.View
-import android.widget.Toast
-import com.example.esp32_ble_interface_android.databinding.ActivityMainBinding
 import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.app.ActivityCompat
-import android.bluetooth.BluetoothManager
-import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattService
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import com.example.esp32_ble_interface_android.databinding.ActivityMainBinding
 import java.util.UUID
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -49,6 +50,15 @@ class MainActivity : AppCompatActivity() {
         startScanning()
     }
 
+    override fun onPause() {
+        super.onPause()
+        // Save the current state
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Restore the saved state
+    }
     /**
      * A native method that is implemented by the 'esp32_ble_interface_android' native library,
      * which is packaged with this application.
@@ -77,7 +87,14 @@ class MainActivity : AppCompatActivity() {
     fun clickReload(view: View)
     {
         showToast("Clicked Reload!")
-        startScanning()
+
+        //hard reload lol   (this should be changed though... just reload the whole bluetooth...)
+        val ctx = applicationContext
+        val pm = ctx.packageManager
+        val intent = pm.getLaunchIntentForPackage(ctx.packageName)
+        val mainIntent = Intent.makeRestartActivityTask(intent!!.component)
+        ctx.startActivity(mainIntent)
+        Runtime.getRuntime().exit(0)
     }
 
     fun clickSave(view: View)
@@ -102,6 +119,9 @@ class MainActivity : AppCompatActivity() {
             .toByteArray()
             .toString(Charsets.ISO_8859_1)  // Or whichever encoding your input uses
     }
+
+    private fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
+
 
     //BLUETOOTH================================================================================================================
 
@@ -192,9 +212,9 @@ class MainActivity : AppCompatActivity() {
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             super.onCharacteristicChanged(gatt, characteristic)
             val data = characteristic.value
-            Log.d("BLE_NOTIFY", "Notification received from ${characteristic.uuid}: ${data.toHexString()}")
-            var text = "Received: " + data.toHexString().decodeHex()
-            binding.TextForDebug.text = text
+            Log.d("BLE_NOTIFY", "Notification received from ${characteristic.uuid}: ${data.toHexString().decodeHex()}")
+            val text = "Received: " + data.toHexString().decodeHex()
+            handleData(text)
         }
     }
 
@@ -206,24 +226,37 @@ class MainActivity : AppCompatActivity() {
         selectedDevice?.connectGatt(this, false, callback) ?: Log.e("BLE_CONNECT", "Selected device is null")
     }
 
-    private fun enableNotifications(gatt: BluetoothGatt, characteristicUUID: UUID) {
+    private fun enableNotifications(gatt: BluetoothGatt, characteristicUUID: UUID)
+    {
         val characteristic = gatt.services.flatMap { it.characteristics }
             .find { it.uuid == characteristicUUID }
         if (characteristic != null) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
-            {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                 goBackToPermissionPage()
                 return
             }
             gatt.setCharacteristicNotification(characteristic, true)
             val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
-            descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            gatt.writeDescriptor(descriptor)
-            Log.d("BLE_NOTIFY", "Notifications enabled for characteristic: $characteristicUUID")
+            descriptor?.let {
+                it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                gatt.writeDescriptor(it)
+                Log.d("BLE_NOTIFY", "Notifications enabled for characteristic: $characteristicUUID")
+            }
         } else {
             Log.w("BLE_NOTIFY", "Characteristic $characteristicUUID not found")
         }
     }
 
-    private fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
+
+
+    //HANDLE DATA==============================================================================================================
+
+    fun handleData(data :String)
+    {
+        binding.TextForDebug.text = data
+
+
+
+    }
+
 }
