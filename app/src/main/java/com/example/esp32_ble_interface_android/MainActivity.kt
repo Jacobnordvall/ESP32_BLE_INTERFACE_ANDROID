@@ -81,11 +81,13 @@ class MainActivity : AppCompatActivity() {
     fun clickWrite(view: View)
     {
         showToast("Clicked Write!")
+        writeCharacteristic("0")
     }
 
     fun clickReceive(view: View)
     {
         showToast("Clicked Receive!")
+        writeCharacteristic("1")
     }
 
     fun clickReload(view: View)
@@ -182,10 +184,12 @@ class MainActivity : AppCompatActivity() {
                     goBackToPermissionPage()
                     return
                 }
+                this@MainActivity.gatt = gatt // Assign to member variable
                 gatt.discoverServices()
             }
             if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                 Log.d("BLE_SCAN", "Disconnected...")
+                this@MainActivity.gatt = null // Assign to member variable
                 startScanning()
             }
         }
@@ -256,9 +260,55 @@ class MainActivity : AppCompatActivity() {
 
     Characteristic UUID:
     9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36
+
+    logs:
+    ble_service -> discovered UUIDs
+    ble_write  -> write debug
+    ble_scan -> connection
     */
 
+    fun writeCharacteristic(data: String) {
+        val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
+        val characteristicUUID = UUID.fromString("9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36")
 
+        // Check if BluetoothGatt is null or not connected
+        if (gatt == null || gatt?.services.isNullOrEmpty()) {
+            Log.e("BLE_WRITE", "Gatt connection not established or services not discovered")   //THIS! THIS DAMNED MESSAGE HAUNTS ME.
+            return
+        }
+
+        // Find the service by UUID
+        val service = gatt!!.getService(serviceUUID)
+        if (service == null) {
+            Log.e("BLE_WRITE", "Service not found: $serviceUUID")
+            return
+        }
+
+        // Find the characteristic by UUID
+        val characteristic = service.getCharacteristic(characteristicUUID)
+        if (characteristic == null) {
+            Log.e("BLE_WRITE", "Characteristic not found: $characteristicUUID")
+            return
+        }
+
+        // First, set the new value to our local copy of the characteristic
+        val dataToSend = data.toByteArray() // Replace with your actual data to send
+        characteristic.value = dataToSend
+
+        // Then, send the updated characteristic to the device
+        val success = if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            goBackToPermissionPage()
+            return
+        }
+        else
+            gatt!!.writeCharacteristic(characteristic)
+
+        if (!success) {
+            Log.e("BLE_WRITE", "Failed to write characteristic")
+        } else {
+            Log.d("BLE_WRITE", "Characteristic written successfully")
+        }
+    }
 
     //HANDLE DATA==============================================================================================================
 

@@ -6,7 +6,7 @@
     <string name="bluetooth_text">turn on Bluetooth</string>
     <string name="permissions_skip">stuck?</string>
 
-    <string name="Row1Title">BLE Receive/Write</string>
-    <string name="Row1Button0">RECEIVE</string>
-    <string name="Row1Button1">WRITE</string>
+    <string name="Row1Title">ESP Led ON/OFF</string>
+    <string name="Row1Button0">ON</string>
+    <string name="Row1Button1">OFF</string>
 </resources>
