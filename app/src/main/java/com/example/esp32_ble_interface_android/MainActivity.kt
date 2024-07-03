@@ -22,6 +22,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.example.esp32_ble_interface_android.databinding.ActivityMainBinding
 import java.util.UUID
+import kotlinx.coroutines.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -33,6 +34,15 @@ class MainActivity : AppCompatActivity() {
     private var selectedDevice: BluetoothDevice? = null
     private var gatt: BluetoothGatt? = null
     private var services: List<BluetoothGattService> = emptyList()
+
+    private val deviceNameESP32 = "ESP32" //Name of the esp32 ble server/device
+    private val authKey = "your_auth_key" // Replace with your actual auth key
+    private val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
+    private val authCharacteristicUUID = UUID.fromString("e58b4b34-daa6-4a79-8a4c-50d63e6e767f")
+    private val writeCharacteristicUUID = UUID.fromString("9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36")
+    private val notifyCharacteristicUUID = UUID.fromString("a9248655-7f1b-4e18-bf36-ad1ee859983f")
+
+
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -74,26 +84,18 @@ class MainActivity : AppCompatActivity() {
 
     //BUTTON CLICKS============================================================================================================
 
-    //MAKES TOAST POPUPS FOR EACH BUTTON PRESS.
-    private fun showToast(message: String)
-    { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
-
-    fun clickWrite(view: View)
+    fun clickOff(view: View)
     {
-        showToast("Clicked Write!")
         writeCharacteristic("0")
     }
 
-    fun clickReceive(view: View)
+    fun clickOn(view: View)
     {
-        showToast("Clicked Receive!")
         writeCharacteristic("1")
     }
 
     fun clickReload(view: View)
     {
-        showToast("Clicked Reload!")
-
         //hard reload lol   (this should be changed though... just reload the whole bluetooth...)
         val ctx = applicationContext
         val pm = ctx.packageManager
@@ -104,7 +106,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun clickSave(view: View)
-    { showToast("Clicked Save!") }
+    { Toast.makeText(this, "Clicked Save!", Toast.LENGTH_SHORT).show() }
 
     //NAVIGATION===============================================================================================================
 
@@ -139,7 +141,7 @@ class MainActivity : AppCompatActivity() {
                 val deviceName = it.scanRecord?.deviceName
                 val deviceAddress = it.device.address
 
-                if (deviceName == "ESP32") {
+                if (deviceName == deviceNameESP32) {
                     selectedDevice = it.device
                     Log.d("BLE_SCAN", "Selected device: $deviceName")
                     connect()
@@ -209,14 +211,14 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                // Assuming you know the UUID of the characteristic you want to enable notifications for
-                val characteristicUUID = UUID.fromString("a9248655-7f1b-4e18-bf36-ad1ee859983f")
-                enableNotifications(gatt, characteristicUUID)
+                // Authenticate by writing the key to the AUTH characteristic
+                authenticateDevice(gatt)
             } else {
                 Log.w("BLE_SERVICES", "onServicesDiscovered received: $status")
             }
         }
 
+        @Deprecated("Deprecated in Java")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             super.onCharacteristicChanged(gatt, characteristic)
             val data = characteristic.value.toHexString().decodeHex()
@@ -254,6 +256,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun authenticateDevice(gatt: BluetoothGatt) {
+        val authCharacteristic = gatt.getService(serviceUUID)?.getCharacteristic(authCharacteristicUUID)
+        if (authCharacteristic != null) {
+            authCharacteristic.value = authKey.toByteArray()
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                goBackToPermissionPage()
+                return
+            }
+            gatt.writeCharacteristic(authCharacteristic)
+            Log.d("BLE_AUTH", "Authentication key written to characteristic")
+
+            //delay the execution of startEnablingNotifications() by 500ms to let things catch up
+            CoroutineScope(Dispatchers.Main).launch { delay(500); startEnablingNotifications() }
+
+        } else {
+            Log.e("BLE_AUTH", "Authentication characteristic not found")
+        }
+    }
+
+    fun startEnablingNotifications()
+    {
+        // Assuming you know the UUID of the characteristic you want to enable notifications for
+        gatt?.let { enableNotifications(it, notifyCharacteristicUUID) }
+    }
+
     /* WRITING DATA
     Service UUID:
     35e2384d-09ba-40ec-8cc2-a491e7bcd763
@@ -268,9 +295,6 @@ class MainActivity : AppCompatActivity() {
     */
 
     fun writeCharacteristic(data: String) {
-        val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
-        val characteristicUUID = UUID.fromString("9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36")
-
         // Check if BluetoothGatt is null or not connected
         if (gatt == null || gatt?.services.isNullOrEmpty()) {
             Log.e("BLE_WRITE", "Gatt connection not established or services not discovered")   //THIS! THIS DAMNED MESSAGE HAUNTS ME.
@@ -285,9 +309,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Find the characteristic by UUID
-        val characteristic = service.getCharacteristic(characteristicUUID)
+        val characteristic = service.getCharacteristic(writeCharacteristicUUID)
         if (characteristic == null) {
-            Log.e("BLE_WRITE", "Characteristic not found: $characteristicUUID")
+            Log.e("BLE_WRITE", "Characteristic not found: $writeCharacteristicUUID")
             return
         }
 
