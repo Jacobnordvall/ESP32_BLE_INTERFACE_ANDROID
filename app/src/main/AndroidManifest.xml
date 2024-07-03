@@ -21,7 +21,8 @@
         tools:targetApi="35">
         <activity
             android:name=".PermissionScreen"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="portrait" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -30,7 +31,8 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="portrait" >
             <!-- Remove any intent-filter that declares it as MAIN/LAUNCHER -->
         </activity>
     </application>
