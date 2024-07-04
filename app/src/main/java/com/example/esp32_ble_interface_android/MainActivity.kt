@@ -11,11 +11,14 @@ import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.ParcelUuid
 import android.util.Log
 import android.view.View
 import android.widget.TextView
@@ -27,6 +30,7 @@ import java.util.UUID
 import kotlinx.coroutines.*
 import android.text.Html
 
+@Suppress("DEPRECATION")
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -38,8 +42,15 @@ class MainActivity : AppCompatActivity() {
     private var selectedDevice: BluetoothDevice? = null
     private var gatt: BluetoothGatt? = null
     private var services: List<BluetoothGattService> = emptyList()
+    private var isScanning = false
 
-    private val espAddress = "B0:B2:1C:F8:B4:8A" // Address of the ESP32 BLE server/device (Shows in esp logs on boot)
+    //DEBUG CONNECTION CODES
+    private val gattConnTimeout = 0x08
+    private val gattConnTerminatePeerUser = 0x13
+    private val gattConnFailEstablish = 0x3E
+    private val gattConnL2CFailure = 0x22
+
+    //CONFIGURE THESE TO MATCH THE ESP32 ONES
     private val authKey = "your_auth_key" // Replace with your actual auth key
     private val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
     private val authCharacteristicUUID = UUID.fromString("e58b4b34-daa6-4a79-8a4c-50d63e6e767f")
@@ -77,7 +88,7 @@ class MainActivity : AppCompatActivity() {
      * A native method that is implemented by the 'esp32_ble_interface_android' native library,
      * which is packaged with this application.
      */
-    external fun stringFromJNI(): String
+    private external fun stringFromJNI(): String
 
     companion object {
         // Used to load the 'esp32_ble_interface_android' library on application startup.
@@ -115,7 +126,7 @@ class MainActivity : AppCompatActivity() {
     private fun goBackToPermissionPage() {
         val intent = Intent(this, PermissionScreen::class.java)
         startActivity(intent)
-        finish() // Optional: finish() current activity if not needed anymore
+        finish()
     }
 
 
@@ -200,12 +211,13 @@ class MainActivity : AppCompatActivity() {
             super.onScanResult(callbackType, result)
 
             result?.let {
-                val deviceAddress = it.device.address // Get the MAC address of the device
+                val scanRecord = it.scanRecord
+                val serviceUuids = scanRecord?.serviceUuids
 
-                // Check if the scanned device's MAC address matches the desired device
-                if (deviceAddress == espAddress) {
+                // Check if the scanned device advertises the desired service UUID
+                if (serviceUuids?.any { uuid -> uuid.uuid == serviceUUID } == true) {
                     selectedDevice = it.device
-                    Log.d("BLE_SCAN", "Selected device: $deviceAddress")
+                    Log.d("BLE_SCAN", "Selected device: ${it.device.address}")
                     setDialogState(2) // Device found
                     connect()
                     stopScanning()
@@ -224,7 +236,21 @@ class MainActivity : AppCompatActivity() {
             goBackToPermissionPage()
             return
         }
-        scanner.startScan(scanCallback)
+        if (!isScanning) {
+            val filter = ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid.fromString(serviceUUID.toString()))
+                .build()
+
+            val settings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build()
+
+            scanner.startScan(listOf(filter), settings, scanCallback)
+            isScanning = true
+            Log.d("BLE_SCAN", "Scan started")
+        } else {
+            Log.w("BLE_SCAN", "Scan already started")
+        }
     }
 
     private fun stopScanning() {
@@ -233,7 +259,25 @@ class MainActivity : AppCompatActivity() {
             goBackToPermissionPage()
             return
         }
-        scanner.stopScan(scanCallback)
+        if (isScanning) {
+            scanner.stopScan(scanCallback)
+            isScanning = false
+            Log.d("BLE_SCAN", "Scan stopped")
+        } else {
+            Log.w("BLE_SCAN", "No scan to stop")
+        }
+    }
+
+    private fun refreshDeviceCache(gatt: BluetoothGatt): Boolean {
+        try
+        {
+            val method = gatt.javaClass.getMethod("refresh")
+            return method.invoke(gatt) as Boolean
+        } catch (exception: Exception)
+        {
+            Log.e("BLE_SCAN", "Exception occurred while refreshing device: ${exception.message}")
+        }
+        return false
     }
 
     private val callback = object : BluetoothGattCallback() {
@@ -241,8 +285,16 @@ class MainActivity : AppCompatActivity() {
             super.onConnectionStateChange(gatt, status, newState)
 
             runOnUiThread {
+                Log.d("BLE_SCAN", "Connection State Change: Status - $status, New State - $newState")
                 if (status != BluetoothGatt.GATT_SUCCESS) {
-                    Log.d("BLE_SCAN", "Error on connecting...")
+                    Log.e("BLE_SCAN", "Error on connecting: Status - $status")
+                    handleConnectionError(status)
+                    refreshDeviceCache(gatt)
+                    if (ActivityCompat.checkSelfPermission(AppCompatActivity(), Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        goBackToPermissionPage()
+                        return@runOnUiThread
+                    }
+                    gatt.close()
                     setDialogState(1)
                     if (dialog?.isShowing == false) {
                         dialog!!.show()
@@ -270,6 +322,16 @@ class MainActivity : AppCompatActivity() {
                     this@MainActivity.gatt = null // Assign to member variable
                     startScanning()
                 }
+            }
+        }
+
+        private fun handleConnectionError(status: Int) {
+            when (status) {
+                gattConnTimeout -> Log.e("BLE_SCAN", "Connection Timeout")
+                gattConnTerminatePeerUser -> Log.e("BLE_SCAN", "Connection Terminated by Peer User")
+                gattConnFailEstablish -> Log.e("BLE_SCAN", "Connection Failed to Establish")
+                gattConnL2CFailure -> Log.e("BLE_SCAN", "L2CAP Failure")
+                else -> Log.e("BLE_SCAN", "Unknown Error: $status")
             }
         }
 
@@ -363,7 +425,7 @@ class MainActivity : AppCompatActivity() {
 
     // WRITING DATA ==============================================================================================================
 
-    fun writeCharacteristic(data: String) {
+    private fun writeCharacteristic(data: String) {
         // Check if BluetoothGatt is null or not connected
         if (gatt == null || gatt?.services.isNullOrEmpty()) {
             Log.e("BLE_WRITE", "Gatt connection not established or services not discovered")
@@ -398,10 +460,6 @@ class MainActivity : AppCompatActivity() {
 
         if (!success) {
             Log.e("BLE_WRITE", "Failed to write characteristic")
-            setDialogState(1)
-            if (dialog?.isShowing == false) {
-                dialog!!.show()
-            }
         } else {
             Log.d("BLE_WRITE", "Characteristic written successfully")
         }
