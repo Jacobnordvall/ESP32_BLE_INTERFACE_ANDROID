@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var dialog: Dialog? = null
+    private val mainScope = CoroutineScope(Dispatchers.Main)
 
     private lateinit var bluetoothManager: BluetoothManager
     private val scanner: BluetoothLeScanner get() = bluetoothManager.adapter.bluetoothLeScanner
@@ -38,7 +39,7 @@ class MainActivity : AppCompatActivity() {
     private var gatt: BluetoothGatt? = null
     private var services: List<BluetoothGattService> = emptyList()
 
-    private val deviceNameESP32 = "ESP32" // Name of the ESP32 BLE server/device
+    private val espAddress = "B0:B2:1C:F8:B4:8A" // Address of the ESP32 BLE server/device (Shows in esp logs on boot)
     private val authKey = "your_auth_key" // Replace with your actual auth key
     private val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
     private val authCharacteristicUUID = UUID.fromString("e58b4b34-daa6-4a79-8a4c-50d63e6e767f")
@@ -58,6 +59,7 @@ class MainActivity : AppCompatActivity() {
             ?: throw Exception("Bluetooth is not supported by this device")
 
         showDialog()
+        setDialogState(1)
         startScanning()
     }
 
@@ -116,35 +118,66 @@ class MainActivity : AppCompatActivity() {
         finish() // Optional: finish() current activity if not needed anymore
     }
 
+
     // CONNECTION DIALOG========================================================================================================
 
     private fun showDialog() {
+        Log.d("Dialog", "showDialog() called")
         if (dialog?.isShowing == true) {
-            return // If the dialog is already showing, do nothing
+            Log.d("Dialog", "Dialog is already showing")
+            return
         }
+
         dialog = Dialog(this, R.style.DialogStyle).apply {
             setContentView(R.layout.ble_connection_status_dialog)
             window?.setBackgroundDrawableResource(R.drawable.ble_conncection_dialog_background)
             setCancelable(false)
-            show()
         }
+
+        dialog?.show()
+        Log.d("Dialog", "Dialog shown")
     }
 
     private fun dismissDialog() {
         dialog?.dismiss()
     }
 
+    private var connectingDotsJob: Job? = null
+
     private fun setDialogState(state: Int) {
         val dialogText: TextView? = dialog?.findViewById(R.id.dialogText)
 
         dialogText?.let {
-            val htmlText = when (state) {
-                1 -> "<b>CONNECTING TO DEVICE...</b><br><br>Device found: ✘<br>Device Connected: ✘"
-                2 -> "<b>CONNECTING TO DEVICE...</b><br><br>Device found: ✔<br>Device Connected: ✘"
-                3 -> "<b>CONNECTING TO DEVICE...</b><br><br>Device found: ✔<br>Device Connected: ✔"
-                else -> "<b>CONNECTING TO DEVICE...</b>"
+            val baseText = "<b>CONNECTING TO DEVICE</b><br>"
+            val additionalText = when (state) {
+                1 -> "Device found: ✕<br>Device Connected: ✕"
+                2 -> "Device found: ✓<br>Device Connected: ✕"
+                3 -> "Device found: ✓<br>Device Connected: ✓"
+                else -> "Device found: ✕<br>Device Connected: ✕"
             }
-            it.text = Html.fromHtml(htmlText, Html.FROM_HTML_MODE_LEGACY)
+
+            // Start coroutine to update dots every 500ms
+            connectingDotsJob?.cancel()  // Cancel any existing job
+            connectingDotsJob = mainScope.launch {
+                while (isActive) { // Continue while coroutine is active
+                    var dotsCount = 0
+                    while (dotsCount < 8) {
+                        delay(120)
+                        val dots = when (dotsCount) {
+                            1 -> ".."
+                            2 -> "..."
+                            3 -> "...."
+                            4 -> "...."
+                            5 -> "...."
+                            6 -> "...."
+                            7 -> "...."
+                            else -> "."
+                        }
+                        it.text = Html.fromHtml("$baseText$dots<br>$additionalText", Html.FROM_HTML_MODE_LEGACY)
+                        dotsCount++
+                    }
+                }
+            }
         }
     }
 
@@ -167,12 +200,12 @@ class MainActivity : AppCompatActivity() {
             super.onScanResult(callbackType, result)
 
             result?.let {
-                val deviceName = it.scanRecord?.deviceName
-                val deviceAddress = it.device.address
+                val deviceAddress = it.device.address // Get the MAC address of the device
 
-                if (deviceName == deviceNameESP32) {
+                // Check if the scanned device's MAC address matches the desired device
+                if (deviceAddress == espAddress) {
                     selectedDevice = it.device
-                    Log.d("BLE_SCAN", "Selected device: $deviceName")
+                    Log.d("BLE_SCAN", "Selected device: $deviceAddress")
                     setDialogState(2) // Device found
                     connect()
                     stopScanning()
