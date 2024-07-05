@@ -5,7 +5,7 @@
     <string name="permissions_text">Accept permissions</string>
     <string name="bluetooth_text">turn on Bluetooth</string>
     <string name="permissions_skip">stuck?</string>
-    <string name="dialog_text"><b>CONNECTING TO DEVICE...</b>\n\nDevice found: ✘\nDevice Connected: ✘</string>
+    <string name="dialog_text"><b>CONNECTING TO DEVICE</b>\n\nDevice found: ✕\nDevice Connected: ✕</string>
     <string name="dialog_text1">Allow <b>ESP32_BLE_INTERFACE</b> to find, connect to, and determine the relative position of nearby devices?</string>
 
     <string name="Row1Title">ESP Led ON/OFF</string>

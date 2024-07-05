@@ -20,6 +20,7 @@
             android:id="@+id/imageView"
             android:layout_width="32dp"
             android:layout_height="32dp"
+            android:contentDescription="@string/app_name"
             app:tint="@color/DialogColorIcon"
             app:layout_constraintBottom_toTopOf="@+id/dialogText"
             app:layout_constraintEnd_toEndOf="parent"

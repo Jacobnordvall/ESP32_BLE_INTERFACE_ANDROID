@@ -11,11 +11,14 @@ import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.ParcelUuid
 import android.util.Log
 import android.view.View
 import android.widget.TextView
@@ -27,29 +30,39 @@ import java.util.UUID
 import kotlinx.coroutines.*
 import android.text.Html
 
-
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var dialog: Dialog? = null
+    private val mainScope = CoroutineScope(Dispatchers.Main)
 
     private lateinit var bluetoothManager: BluetoothManager
     private val scanner: BluetoothLeScanner get() = bluetoothManager.adapter.bluetoothLeScanner
     private var selectedDevice: BluetoothDevice? = null
     private var gatt: BluetoothGatt? = null
     private var services: List<BluetoothGattService> = emptyList()
+    private var isScanning = false
 
-    private val deviceNameESP32 = "ESP32" //Name of the esp32 ble server/device
+    //DEBUG CONNECTION CODES
+    private val gattConnTimeout = 0x08
+    private val gattConnTerminatePeerUser = 0x13
+    private val gattConnFailEstablish = 0x3E
+    private val gattConnL2CFailure = 0x22
+
+    //CONNECTION RETRIES BEFORE RESTART APP
+    private var connectionRetryCount = 0
+    private val maxConnectionRetries = 4
+    private val connectionRetryDelay = 2000L // 2 seconds
+
+    //CONFIGURE THESE TO MATCH THE ESP32 ONES
+    private val esp32Address = "B0:B2:1C:F8:B4:8A"
     private val authKey = "your_auth_key" // Replace with your actual auth key
     private val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
     private val authCharacteristicUUID = UUID.fromString("e58b4b34-daa6-4a79-8a4c-50d63e6e767f")
     private val writeCharacteristicUUID = UUID.fromString("9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36")
     private val notifyCharacteristicUUID = UUID.fromString("a9248655-7f1b-4e18-bf36-ad1ee859983f")
 
-
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -62,6 +75,7 @@ class MainActivity : AppCompatActivity() {
             ?: throw Exception("Bluetooth is not supported by this device")
 
         showDialog()
+        setDialogState(1)
         startScanning()
     }
 
@@ -74,11 +88,12 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // Restore the saved state
     }
+
     /**
      * A native method that is implemented by the 'esp32_ble_interface_android' native library,
      * which is packaged with this application.
      */
-    external fun stringFromJNI(): String
+    private external fun stringFromJNI(): String
 
     companion object {
         // Used to load the 'esp32_ble_interface_android' library on application startup.
@@ -87,21 +102,110 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    //BUTTON CLICKS============================================================================================================
+    // BUTTON CLICKS============================================================================================================
 
-    fun clickOff(view: View)
-    {
-        writeCharacteristic("0")
+    fun clickOff(view: View) {
+        writeCharacteristic("010") // 01=led 0=OFF
     }
 
-    fun clickOn(view: View)
-    {
-        writeCharacteristic("1")
+    fun clickOn(view: View) {
+        writeCharacteristic("011") // 01=led 1=ON
     }
 
-    fun clickReload(view: View)
-    {
-        //hard reload lol   (this should be changed though... just reload the whole bluetooth...)
+    fun clickReload(view: View) {
+        // Hard reload lol (this should be changed though... just reload the whole Bluetooth...)
+        performAppRestart()
+    }
+
+    fun clickSave(view: View) {
+        writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
+    }
+
+    // NAVIGATION===============================================================================================================
+
+    private fun goBackToPermissionPage() {
+        val intent = Intent(this, PermissionScreen::class.java)
+        startActivity(intent)
+        finish()
+    }
+
+
+    // CONNECTION DIALOG========================================================================================================
+
+    private fun showDialog() {
+        Log.d("Dialog", "showDialog() called")
+        if (dialog?.isShowing == true) {
+            Log.d("Dialog", "Dialog is already showing")
+            return
+        }
+
+        dialog = Dialog(this, R.style.DialogStyle).apply {
+            setContentView(R.layout.ble_connection_status_dialog)
+            window?.setBackgroundDrawableResource(R.drawable.ble_conncection_dialog_background)
+            setCancelable(false)
+        }
+
+        dialog?.show()
+        Log.d("Dialog", "Dialog shown")
+    }
+
+    private fun dismissDialog() {
+        dialog?.dismiss()
+    }
+
+    private var connectingDotsJob: Job? = null
+
+    private fun setDialogState(state: Int) {
+        val dialogText: TextView? = dialog?.findViewById(R.id.dialogText)
+
+        dialogText?.let {
+            val baseText = "<b>CONNECTING TO DEVICE</b><br>"
+            val additionalText = when (state) {
+                1 -> "Device found: ✕<br>Device Connected: ✕"
+                2 -> "Device found: ✓<br>Device Connected: ✕"
+                3 -> "Device found: ✓<br>Device Connected: ✓"
+                else -> "Device found: ✕<br>Device Connected: ✕"
+            }
+
+            // Start coroutine to update dots every 500ms
+            connectingDotsJob?.cancel()  // Cancel any existing job
+            connectingDotsJob = mainScope.launch {
+                while (isActive) { // Continue while coroutine is active
+                    var dotsCount = 0
+                    while (dotsCount < 8) {
+                        delay(120)
+                        val dots = when (dotsCount) {
+                            1 -> ".."
+                            2 -> "..."
+                            3 -> "...."
+                            4 -> "...."
+                            5 -> "...."
+                            6 -> "...."
+                            7 -> "...."
+                            else -> "."
+                        }
+                        it.text = Html.fromHtml(
+                            "$baseText$dots<br>$additionalText",
+                            Html.FROM_HTML_MODE_LEGACY
+                        )
+                        dotsCount++
+                    }
+                }
+            }
+        }
+    }
+
+    // HELPER FUNCTIONS=========================================================================================================
+
+    fun String.decodeHex(): String {
+        require(length % 2 == 0) { "Must have an even length" }
+        return chunked(2)
+            .map { it.toInt(16).toByte() }
+            .toByteArray()
+            .toString(Charsets.ISO_8859_1)  // Or whichever encoding your input uses
+    }
+
+    private fun performAppRestart() {
         val ctx = applicationContext
         val pm = ctx.packageManager
         val intent = pm.getLaunchIntentForPackage(ctx.packageName)
@@ -110,79 +214,21 @@ class MainActivity : AppCompatActivity() {
         Runtime.getRuntime().exit(0)
     }
 
-    fun clickSave(view: View)
-    { Toast.makeText(this, "Clicked Save!", Toast.LENGTH_SHORT).show() }
-
-    //NAVIGATION===============================================================================================================
-
-    private fun goBackToPermissionPage()
-    {
-        val intent = Intent(this, PermissionScreen::class.java)
-        startActivity(intent)
-        finish() // Optional: finish() current activity if not needed anymore
-    }
-
-
-    //CONNECTION DIALOG========================================================================================================
-
-    private fun showDialog() {
-        if (dialog?.isShowing == true) {
-            return // If the dialog is already showing, do nothing
-        }
-        dialog = Dialog(this, R.style.DialogStyle).apply {
-            setContentView(R.layout.ble_connection_status_dialog)
-            window?.setBackgroundDrawableResource(R.drawable.ble_conncection_dialog_background)
-            setCancelable(false)
-            show()
-        }
-    }
-
-    private fun dismissDialog() {
-        dialog?.hide()
-    }
-
-    private fun setDialogState(state: Int) {
-        val dialogText: TextView? = dialog?.findViewById(R.id.dialogText)
-
-        dialogText?.let {
-            val htmlText = when (state) {
-                1 -> "<b>CONNECTING TO DEVICE...</b><br><br>Device found: ✘<br>Device Connected: ✘"
-                2 -> "<b>CONNECTING TO DEVICE...</b><br><br>Device found: ✔<br>Device Connected: ✘"
-                3 -> "<b>CONNECTING TO DEVICE...</b><br><br>Device found: ✔<br>Device Connected: ✔"
-                else -> "<b>CONNECTING TO DEVICE...</b>"
-            }
-            it.text = Html.fromHtml(htmlText, Html.FROM_HTML_MODE_LEGACY)
-        }
-    }
-
-
-    //HELPER FUNCTIONS=========================================================================================================
-
-    fun String.decodeHex(): String {
-        require(length % 2 == 0) {"Must have an even length"}
-        return chunked(2)
-            .map { it.toInt(16).toByte() }
-            .toByteArray()
-            .toString(Charsets.ISO_8859_1)  // Or whichever encoding your input uses
-    }
-
     private fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
 
-
-    //BLUETOOTH================================================================================================================
+    // BLUETOOTH================================================================================================================
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
 
             result?.let {
-                val deviceName = it.scanRecord?.deviceName
-                val deviceAddress = it.device.address
-
-                if (deviceName == deviceNameESP32) {
-                    selectedDevice = it.device
-                    Log.d("BLE_SCAN", "Selected device: $deviceName")
-                    setDialogState(1)
+                val device = it.device
+                // Replace "desired_mac_address" with the actual MAC address of the device you want to connect to
+                if (device.address == esp32Address) {
+                    selectedDevice = device
+                    Log.d("BLE_SCAN", "Selected device: ${device.address}")
+                    setDialogState(2) // Device found
                     connect()
                     stopScanning()
                 }
@@ -191,24 +237,57 @@ class MainActivity : AppCompatActivity() {
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
+            Log.e("BLE_SCAN", "Scan failed with error code: $errorCode")
         }
     }
 
     private fun startScanning() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             goBackToPermissionPage()
             return
         }
-        scanner.startScan(scanCallback)
+        if (!isScanning) {
+            val settings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build()
+
+            val scanner = bluetoothManager.adapter?.bluetoothLeScanner
+            scanner?.startScan(null, settings, scanCallback) // Passing null instead of filters
+            Log.d("BLE_SCAN", "Started scanning")
+            isScanning = true
+        }
     }
 
-    fun stopScanning() {
+    private fun stopScanning() {
         Log.d("BLE_SCAN", "Stopping scan...")
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             goBackToPermissionPage()
             return
         }
-        scanner.stopScan(scanCallback)
+        if (isScanning) {
+            val scanner = bluetoothManager.adapter?.bluetoothLeScanner
+            scanner?.stopScan(scanCallback)
+            Log.d("BLE_SCAN", "Stopped scanning")
+            isScanning = false
+        }
+    }
+
+    private fun refreshDeviceCache(gatt: BluetoothGatt): Boolean {
+        try {
+            val method = gatt.javaClass.getMethod("refresh")
+            return method.invoke(gatt) as Boolean
+        } catch (exception: Exception) {
+            Log.e("BLE_SCAN", "Exception occurred while refreshing device: ${exception.message}")
+        }
+        return false
     }
 
     private val callback = object : BluetoothGattCallback() {
@@ -216,23 +295,48 @@ class MainActivity : AppCompatActivity() {
             super.onConnectionStateChange(gatt, status, newState)
 
             runOnUiThread {
+                Log.d(
+                    "BLE_SCAN",
+                    "Connection State Change: Status - $status, New State - $newState"
+                )
                 if (status != BluetoothGatt.GATT_SUCCESS) {
-                    Log.d("BLE_SCAN", "Error on connecting...")
-                    setDialogState(1)
-                    if (dialog?.isShowing == false) {
-                        dialog!!.show()
+                    Log.e("BLE_SCAN", "Error on connecting: Status - $status")
+                    handleConnectionError(status)
+                    refreshDeviceCache(gatt)
+                    if (ActivityCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        goBackToPermissionPage()
+                        return@runOnUiThread
+                    }
+                    gatt.close()
+                    if (status == 133) {
+                        retryConnection()
+                    } else {
+                        setDialogState(1)
+                        if (dialog?.isShowing == false) {
+                            dialog!!.show()
+                        }
+                        startScanning()
                     }
                     return@runOnUiThread
                 }
                 if (newState == BluetoothGatt.STATE_CONNECTED) {
                     Log.d("BLE_SCAN", "Connected...")
-                    if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    if (ActivityCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
                         goBackToPermissionPage()
                         return@runOnUiThread
                     }
                     setDialogState(2)
                     this@MainActivity.gatt = gatt // Assign to member variable
                     gatt.discoverServices()
+                    connectionRetryCount = 0 // Reset retry count on successful connection
                 }
                 if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                     Log.d("BLE_SCAN", "Disconnected...")
@@ -240,9 +344,59 @@ class MainActivity : AppCompatActivity() {
                     if (dialog?.isShowing == false) {
                         dialog!!.show()
                     }
+                    this@MainActivity.gatt?.close() // Close the GATT connection
                     this@MainActivity.gatt = null // Assign to member variable
                     startScanning()
                 }
+            }
+
+        }
+
+        private fun handleConnectionError(status: Int) {
+            when (status) {
+                gattConnTimeout -> Log.e("BLE_SCAN", "Connection Timeout")
+                gattConnTerminatePeerUser -> Log.e("BLE_SCAN", "Connection Terminated by Peer User")
+                gattConnFailEstablish -> Log.e("BLE_SCAN", "Connection Failed to Establish")
+                gattConnL2CFailure -> Log.e("BLE_SCAN", "L2CAP Failure")
+                133 -> Log.e("BLE_SCAN", "GATT Error 133: Unknown Connection Error")
+                else -> Log.e("BLE_SCAN", "Unknown Error: $status")
+            }
+        }
+
+        private fun toggleBluetoothAdapter() {
+            val bluetoothAdapter = bluetoothManager.adapter
+            if (bluetoothAdapter.isEnabled) {
+                if (ActivityCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.BLUETOOTH_CONNECT
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    goBackToPermissionPage()
+                    return
+                }
+                bluetoothAdapter.disable()
+                mainScope.launch {
+                    delay(2000) // Wait for 2 seconds before enabling again
+                    bluetoothAdapter.enable()
+                }
+            } else {
+                bluetoothAdapter.enable()
+            }
+        }
+
+        private fun retryConnection() {
+            if (connectionRetryCount < maxConnectionRetries) {
+                connectionRetryCount++
+                Log.d("BLE_SCAN", "Retrying connection... Attempt: $connectionRetryCount")
+                mainScope.launch {
+                    delay(connectionRetryDelay)
+                    toggleBluetoothAdapter() // Toggle Bluetooth before retrying
+                    delay(3000) // Additional delay to ensure the Bluetooth adapter is properly toggled
+                    connect() // Reattempt to connect
+                }
+            } else {
+                Log.e("BLE_SCAN", "Device probably has a bad ble implementation")
+                performAppRestart()
             }
         }
 
@@ -268,33 +422,47 @@ class MainActivity : AppCompatActivity() {
         }
 
         @Deprecated("Deprecated in Java")
-        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic
+        ) {
             super.onCharacteristicChanged(gatt, characteristic)
             val data = characteristic.value.toHexString().decodeHex()
-            Log.d("BLE_NOTIFY", "Notification received from ${characteristic.uuid}: $data")
+            Log.d("BLE_NOTIFY", "Data received from ${characteristic.uuid}: $data")
             handleData(data)
         }
     }
 
-    fun connect() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+    private fun connect() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             goBackToPermissionPage()
             return
         }
-        selectedDevice?.connectGatt(this, false, callback) ?: Log.e("BLE_CONNECT", "Selected device is null")
+        selectedDevice?.connectGatt(this, false, callback) ?: Log.e(
+            "BLE_SCAN",
+            "Selected device is null"
+        )
     }
 
-    private fun enableNotifications(gatt: BluetoothGatt, characteristicUUID: UUID)
-    {
+    private fun enableNotifications(gatt: BluetoothGatt, characteristicUUID: UUID) {
         val characteristic = gatt.services.flatMap { it.characteristics }
             .find { it.uuid == characteristicUUID }
         if (characteristic != null) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
                 goBackToPermissionPage()
                 return
             }
             gatt.setCharacteristicNotification(characteristic, true)
-            val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+            val descriptor =
+                characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
             descriptor?.let {
                 it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                 gatt.writeDescriptor(it)
@@ -306,48 +474,54 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun authenticateDevice(gatt: BluetoothGatt) {
-        val authCharacteristic = gatt.getService(serviceUUID)?.getCharacteristic(authCharacteristicUUID)
+        val authCharacteristic =
+            gatt.getService(serviceUUID)?.getCharacteristic(authCharacteristicUUID)
         if (authCharacteristic != null) {
             authCharacteristic.value = authKey.toByteArray()
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
                 goBackToPermissionPage()
                 return
             }
-            gatt.writeCharacteristic(authCharacteristic)
+            val success = gatt.writeCharacteristic(authCharacteristic)
             Log.d("BLE_AUTH", "Authentication key written to characteristic")
 
-            //delay the execution of startEnablingNotifications() by 500ms to let things catch up
-            CoroutineScope(Dispatchers.Main).launch { delay(500); startEnablingNotifications() }
-
+            if (success) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    delay(500) // Delay to ensure the write operation completes
+                    startEnablingNotifications()
+                }
+            } else {
+                Log.e("BLE_AUTH", "Failed to write authentication characteristic")
+            }
         } else {
             Log.e("BLE_AUTH", "Authentication characteristic not found")
         }
     }
 
-    fun startEnablingNotifications()
-    {
+    private fun startEnablingNotifications() {
         // Assuming you know the UUID of the characteristic you want to enable notifications for
         gatt?.let { enableNotifications(it, notifyCharacteristicUUID) }
-        dismissDialog()
+
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(500) // Delay to ensure everything is done and ready to proceed
+            writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
+        }
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(700) // Delay to ensure the loading and applying of the device state is finished
+            dismissDialog()
+        }
     }
 
-    /* WRITING DATA
-    Service UUID:
-    35e2384d-09ba-40ec-8cc2-a491e7bcd763
+    // WRITING DATA ==============================================================================================================
 
-    Characteristic UUID:
-    9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36
-
-    logs:
-    ble_service -> discovered UUIDs
-    ble_write  -> write debug
-    ble_scan -> connection
-    */
-
-    fun writeCharacteristic(data: String) {
+    private fun writeCharacteristic(data: String) {
         // Check if BluetoothGatt is null or not connected
         if (gatt == null || gatt?.services.isNullOrEmpty()) {
-            Log.e("BLE_WRITE", "Gatt connection not established or services not discovered")   //THIS! THIS DAMNED MESSAGE HAUNTS ME.
+            Log.e("BLE_WRITE", "Gatt connection not established or services not discovered")
             return
         }
 
@@ -370,32 +544,66 @@ class MainActivity : AppCompatActivity() {
         characteristic.value = dataToSend
 
         // Then, send the updated characteristic to the device
-        val success = if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+        val success = if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             goBackToPermissionPage()
             return
-        }
-        else
+        } else {
             gatt!!.writeCharacteristic(characteristic)
+        }
 
         if (!success) {
             Log.e("BLE_WRITE", "Failed to write characteristic")
-            setDialogState(1)
-            if (dialog?.isShowing == false) {
-                dialog!!.show()
-            }
         } else {
             Log.d("BLE_WRITE", "Characteristic written successfully")
         }
     }
 
-    //HANDLE DATA==============================================================================================================
+    // HANDLE DATA ==============================================================================================================
 
-    fun handleData(data :String) //data is already decoded and turned into a int string.
-    {
+    fun handleData(data: String) {
+        // Data is already decoded and turned into a string
         binding.TextForDebug.text = buildString { append("Received: "); append(data) }
 
-
-
+        try {
+            val encodedNumber = data.toInt() // Convert received string to integer
+            val command = encodedNumber / 10 // Extract digits (tens and hundreds place)
+            val state = encodedNumber % 10 // Extract last digit (units place)
+            actOnData(command, state)
+        } catch (e: NumberFormatException) {
+            // Handle exception if the received data is not a valid number
+            Log.d("BLE_NOTIFY", "Received data is not a valid string: $data")
+        }
     }
+
+    private fun actOnData(command: Int, state: Int) {
+        Log.d("BLE_NOTIFY", "command: $command state: $state")
+
+        return when (command)
+        {
+            1 -> // LED
+            {
+                when (state) {
+                    0 -> {
+                        binding.button2.backgroundTintList = getColorStateList(R.color.MainColor) //ON
+                        binding.button3.backgroundTintList = getColorStateList(R.color.MainColorButtonON) //OFF
+                    }
+                    1 -> {
+                        binding.button2.backgroundTintList = getColorStateList(R.color.MainColorButtonON) //ON
+                        binding.button3.backgroundTintList = getColorStateList(R.color.MainColor) //OFF
+                    }
+                    else -> {   }
+                }
+            }
+            else -> {}
+
+
+        }
+    }
+
+
 
 }

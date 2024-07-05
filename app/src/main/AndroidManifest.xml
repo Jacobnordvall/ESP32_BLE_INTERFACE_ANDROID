@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
 
     <uses-feature
         android:name="android.hardware.bluetooth_le"
@@ -22,7 +23,8 @@
         <activity
             android:name=".PermissionScreen"
             android:exported="true"
-            android:screenOrientation="portrait" >
+            android:screenOrientation="portrait"
+            tools:ignore="DiscouragedApi, LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -32,7 +34,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="portrait" >
+            android:screenOrientation="portrait"
+            tools:ignore="DiscouragedApi, LockedOrientationActivity">
             <!-- Remove any intent-filter that declares it as MAIN/LAUNCHER -->
         </activity>
     </application>
