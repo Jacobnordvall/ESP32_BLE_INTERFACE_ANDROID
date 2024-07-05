@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var dialog: Dialog? = null
     private val mainScope = CoroutineScope(Dispatchers.Main)
+    private val stateChangeDebounceDelay = 300L // 300 milliseconds debounce delay
 
     private lateinit var bluetoothManager: BluetoothManager
     private val scanner: BluetoothLeScanner get() = bluetoothManager.adapter.bluetoothLeScanner
@@ -42,6 +43,8 @@ class MainActivity : AppCompatActivity() {
     private var gatt: BluetoothGatt? = null
     private var services: List<BluetoothGattService> = emptyList()
     private var isScanning = false
+    private var isConnecting = false
+    private var firstSyncWithEsp = true
 
     //DEBUG CONNECTION CODES
     private val gattConnTimeout = 0x08
@@ -55,7 +58,7 @@ class MainActivity : AppCompatActivity() {
     private val connectionRetryDelay = 2000L // 2 seconds
 
     //CONFIGURE THESE TO MATCH THE ESP32 ONES
-    private val esp32Address = "B0:B2:1C:F8:B4:8A"
+    private val esp32Address = "B0:B2:1C:F8:B4:8A" //THE ESP PRINTS THIS ON BOOT TO SERIAL. IF YOUR SERIAL IS BUGGY THEN USE A BLE APP LIKE LIGHT-BLUE TO FIND THE ADDRESS
     private val authKey = "your_auth_key" // Replace with your actual auth key
     private val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
     private val authCharacteristicUUID = UUID.fromString("e58b4b34-daa6-4a79-8a4c-50d63e6e767f")
@@ -113,12 +116,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun clickReload(view: View) {
-        // Hard reload lol (this should be changed though... just reload the whole Bluetooth...)
-        performAppRestart()
+        writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
     }
 
     fun clickSave(view: View) {
-        writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
+        writeCharacteristic("991") //send command to esp to save config
     }
 
     // NAVIGATION===============================================================================================================
@@ -225,10 +227,14 @@ class MainActivity : AppCompatActivity() {
             result?.let {
                 val device = it.device
                 // Replace "desired_mac_address" with the actual MAC address of the device you want to connect to
-                if (device.address == esp32Address) {
+                if (device.address == esp32Address && !isConnecting) {
                     selectedDevice = device
+                    isConnecting = true
                     Log.d("BLE_SCAN", "Selected device: ${device.address}")
-                    setDialogState(2) // Device found
+                    mainScope.launch {
+                        delay(stateChangeDebounceDelay)
+                        setDialogState(2) // Device found
+                    }
                     connect()
                     stopScanning()
                 }
@@ -315,9 +321,12 @@ class MainActivity : AppCompatActivity() {
                     if (status == 133) {
                         retryConnection()
                     } else {
-                        setDialogState(1)
-                        if (dialog?.isShowing == false) {
-                            dialog!!.show()
+                        setDialogState(1) // Disconnected
+                        mainScope.launch {
+                            delay(stateChangeDebounceDelay)
+                            if (dialog?.isShowing == false) {
+                                dialog!!.show()
+                            }
                         }
                         startScanning()
                     }
@@ -333,19 +342,23 @@ class MainActivity : AppCompatActivity() {
                         goBackToPermissionPage()
                         return@runOnUiThread
                     }
-                    setDialogState(2)
                     this@MainActivity.gatt = gatt // Assign to member variable
                     gatt.discoverServices()
                     connectionRetryCount = 0 // Reset retry count on successful connection
                 }
                 if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                     Log.d("BLE_SCAN", "Disconnected...")
-                    setDialogState(1)
-                    if (dialog?.isShowing == false) {
-                        dialog!!.show()
+                    setDialogState(1) // Disconnected
+                    isConnecting = false // Reset the flag on disconnection
+                    mainScope.launch {
+                        delay(stateChangeDebounceDelay)
+                        if (dialog?.isShowing == false) {
+                            dialog!!.show()
+                        }
                     }
                     this@MainActivity.gatt?.close() // Close the GATT connection
                     this@MainActivity.gatt = null // Assign to member variable
+                    firstSyncWithEsp = true
                     startScanning()
                 }
             }
@@ -415,7 +428,10 @@ class MainActivity : AppCompatActivity() {
 
                 // Authenticate by writing the key to the AUTH characteristic
                 authenticateDevice(gatt)
-                setDialogState(3)
+                mainScope.launch {
+                    delay(stateChangeDebounceDelay)
+                    setDialogState(3) // Device connected
+                }
             } else {
                 Log.w("BLE_SERVICES", "onServicesDiscovered received: $status")
             }
@@ -595,7 +611,18 @@ class MainActivity : AppCompatActivity() {
                         binding.button2.backgroundTintList = getColorStateList(R.color.MainColorButtonON) //ON
                         binding.button3.backgroundTintList = getColorStateList(R.color.MainColor) //OFF
                     }
-                    else -> {   }
+                    else -> {}
+                }
+            }
+            99 ->
+            {
+                when (state) {
+                    9 -> {
+                        if(firstSyncWithEsp) {firstSyncWithEsp = false}
+                        else { runOnUiThread { Toast.makeText(this, "Synced with esp", Toast.LENGTH_SHORT).show() } }
+                    }
+                    1 -> { runOnUiThread { Toast.makeText(this, "Saved state as default", Toast.LENGTH_SHORT).show() } }
+                    else -> {}
                 }
             }
             else -> {}
