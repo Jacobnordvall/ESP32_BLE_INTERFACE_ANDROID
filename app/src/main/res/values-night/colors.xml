@@ -19,4 +19,6 @@
     <color name="DialogColor">#3c4043</color>
     <color name="DialogColorText">#f1f0f7</color>
     <color name="DialogColorIcon">@color/material_dynamic_primary70</color>
+
+    <color name="MainColorButtonON">@color/material_dynamic_primary60</color>
 </resources>

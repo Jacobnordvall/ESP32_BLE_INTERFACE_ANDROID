@@ -19,4 +19,6 @@
     <color name="DialogColor">@color/material_dynamic_neutral95</color> <!--SAME AS PERMISSION POPUP-->
     <color name="DialogColorText">#1a1b21</color> <!--NO DARK ENOUGHT VARIANT... GOOGLE WTF-->
     <color name="DialogColorIcon">@color/material_dynamic_primary40</color>
+
+    <color name="MainColorButtonON">@color/material_dynamic_primary50</color>
 </resources>
