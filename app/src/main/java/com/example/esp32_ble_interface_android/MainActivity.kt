@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private var gatt: BluetoothGatt? = null
     private var services: List<BluetoothGattService> = emptyList()
     private var isScanning = false
+    private var firstSyncWithEsp = true
 
     //DEBUG CONNECTION CODES
     private val gattConnTimeout = 0x08
@@ -113,12 +114,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun clickReload(view: View) {
-        // Hard reload lol (this should be changed though... just reload the whole Bluetooth...)
-        performAppRestart()
+        writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
     }
 
     fun clickSave(view: View) {
-        writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
+        writeCharacteristic("991") //send command to esp to save config
     }
 
     // NAVIGATION===============================================================================================================
@@ -595,7 +595,18 @@ class MainActivity : AppCompatActivity() {
                         binding.button2.backgroundTintList = getColorStateList(R.color.MainColorButtonON) //ON
                         binding.button3.backgroundTintList = getColorStateList(R.color.MainColor) //OFF
                     }
-                    else -> {   }
+                    else -> {}
+                }
+            }
+            99 ->
+            {
+                when (state) {
+                    9 -> {
+                        if(firstSyncWithEsp) {firstSyncWithEsp = false}
+                        else { runOnUiThread { Toast.makeText(this, "Synced with esp", Toast.LENGTH_SHORT).show() } }
+                    }
+                    1 -> { runOnUiThread { Toast.makeText(this, "Saved state as default", Toast.LENGTH_SHORT).show() } }
+                    else -> {}
                 }
             }
             else -> {}
