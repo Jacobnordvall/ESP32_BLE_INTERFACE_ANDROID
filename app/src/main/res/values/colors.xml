@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
     <!-- MY USED COLORS -->
-    <color name="MainColor">@color/material_dynamic_primary70</color>
+    <color name="MainColor">@color/material_dynamic_primary50</color>
+    <color name="MainColor2">@color/material_dynamic_primary70</color>
     <color name="SecondaryColor">@color/material_dynamic_secondary99</color>
     <color name="AppBackgroundColor">@color/material_dynamic_primary99</color>
+    <color name="AppBackgroundColorTinted">@color/material_dynamic_primary95</color>
 
-    <color name="TextColorHeader">@color/material_dynamic_primary100</color>
+    <color name="ColorHeader">@color/material_dynamic_primary70</color>
+    <color name="TextColorHeader">@color/material_dynamic_primary0</color>
     <color name="TextColorTitle">@color/material_dynamic_primary0</color>
-    <color name="TextColor">@color/material_dynamic_secondary99</color>
+    <color name="TextColor">@color/material_dynamic_secondary0</color>
+    <color name="TextColorTinted">@color/material_dynamic_primary50</color>
+    <color name="TextColorPermissionPage">@color/white</color>
 
     <color name="DialogColor">@color/material_dynamic_neutral95</color> <!--SAME AS PERMISSION POPUP-->
     <color name="DialogColorText">#1a1b21</color> <!--NO DARK ENOUGHT VARIANT... GOOGLE WTF-->

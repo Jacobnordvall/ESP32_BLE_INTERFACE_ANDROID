@@ -1,26 +1,31 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.ESP32_BLE_INTERFACE_ANDROID" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="Theme.ESP32_BLE_INTERFACE_ANDROID" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimary">@color/MainColor</item>
         <item name="colorPrimaryVariant">@color/MainColor</item>
         <item name="colorOnPrimary">@color/white</item>
         <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorSecondary">@color/MainColor2</item>
+        <item name="colorSecondaryVariant">@color/MainColor2</item>
         <item name="colorOnSecondary">@color/black</item>
 
 
-        <item name="android:statusBarColor">@color/MainColor</item>
+        <item name="android:statusBarColor">@color/AppBackgroundColor</item>
         <item name="android:navigationBarColor">@color/AppBackgroundColor</item>
         <item name="android:windowBackground">@color/AppBackgroundColor</item>
 
 
     </style>
 
-    <style name="DialogStyle" parent="Theme.AppCompat.Dialog">
+    <style name="DialogStyle" parent="ThemeOverlay.Material3.Dialog">
         <item name="android:windowMinWidthMajor">87%</item>
         <item name="android:windowMinWidthMinor">87%</item>
+    </style>
+
+    <style name="DialogStyleBuilder" parent="ThemeOverlay.Material3.Dialog">
+        <item name="android:windowMinWidthMajor">100%</item>
+        <item name="android:windowMinWidthMinor">100%</item>
     </style>
 </resources>
 

@@ -1,14 +1,11 @@
 <resources>
-    <string name="app_name">ESP32_BLE_INTERFACE</string>
+    <string name="app_name">ESP32 BLE</string>
     <string name="permissions_title">Necessary Permissions</string>
     <string name="permissions_description">Does this app track your location?\n\nThis app does <b>not</b> do geolocation in <b>any form or shape</b>. \nThis is sadly not the norm for most BLE apps, be safe.</string>
     <string name="permissions_text">Accept permissions</string>
     <string name="bluetooth_text">turn on Bluetooth</string>
     <string name="permissions_skip">stuck?</string>
     <string name="dialog_text"><b>CONNECTING TO DEVICE</b>\n\nDevice found: ✕\nDevice Connected: ✕</string>
-    <string name="dialog_text1">Allow <b>ESP32_BLE_INTERFACE</b> to find, connect to, and determine the relative position of nearby devices?</string>
 
-    <string name="Row1Title">ESP Led ON/OFF</string>
-    <string name="Row1Button0">ON</string>
-    <string name="Row1Button1">OFF</string>
+    <string name="Row1Title">ESP Led</string>
 </resources>

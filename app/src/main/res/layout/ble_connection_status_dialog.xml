@@ -16,7 +16,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.002">
 
-        <ImageView
+        <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/imageView"
             android:layout_width="32dp"
             android:layout_height="32dp"
@@ -30,7 +30,7 @@
             app:layout_constraintVertical_bias="0.7"
             app:srcCompat="@drawable/nearby_devices_icon" />
 
-        <TextView
+        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/dialogText"
             android:layout_width="300dp"
             android:layout_height="120dp"
@@ -40,6 +40,7 @@
             android:textColor="@color/DialogColorText"
             android:textSize="20sp"
             app:layout_constraintBottom_toBottomOf="parent"
+            android:fontFamily="@font/google_sans"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.495"
             app:layout_constraintStart_toStartOf="parent" />

@@ -1,6 +1,8 @@
 package com.example.esp32_ble_interface_android
 
 import android.Manifest
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.app.Dialog
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -11,14 +13,12 @@ import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.ParcelUuid
 import android.util.Log
 import android.view.View
 import android.widget.TextView
@@ -29,14 +29,27 @@ import com.example.esp32_ble_interface_android.databinding.ActivityMainBinding
 import java.util.UUID
 import kotlinx.coroutines.*
 import android.text.Html
+import android.widget.ScrollView
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
+import android.os.Handler
+import android.os.Looper
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.slider.Slider
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var dialog: Dialog? = null
+    private var dialogOptions: Dialog? = null
     private val mainScope = CoroutineScope(Dispatchers.Main)
-    private val stateChangeDebounceDelay = 300L // 300 milliseconds debounce delay
+    private val stateChangeDebounceDelay = 300L // 300 milliseconds debounce delay for connection dialog
 
+    //UI
+    private lateinit var brightnessSliderText: TextView
+
+    //BLE
     private lateinit var bluetoothManager: BluetoothManager
     private val scanner: BluetoothLeScanner get() = bluetoothManager.adapter.bluetoothLeScanner
     private var selectedDevice: BluetoothDevice? = null
@@ -65,22 +78,30 @@ class MainActivity : AppCompatActivity() {
     private val writeCharacteristicUUID = UUID.fromString("9d5cb5f2-5eb2-4b7c-a5d4-21e61c9c6f36")
     private val notifyCharacteristicUUID = UUID.fromString("a9248655-7f1b-4e18-bf36-ad1ee859983f")
 
+
+    // ON STARTUP===============================================================================================================
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Example of a call to a native method
-        binding.sampleText.text = stringFromJNI()
-
         bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
             ?: throw Exception("Bluetooth is not supported by this device")
 
-        showDialog()
+        // configure scrollview, sliders etc
+        configureScrollsETC()
+
+
+        //showDialog()
+        PrepareOptionsDialog()
         setDialogState(1)
         startScanning()
     }
+
+
+    // APP EXIT/ENTER===========================================================================================================
 
     override fun onPause() {
         super.onPause()
@@ -92,36 +113,143 @@ class MainActivity : AppCompatActivity() {
         // Restore the saved state
     }
 
-    /**
-     * A native method that is implemented by the 'esp32_ble_interface_android' native library,
-     * which is packaged with this application.
-     */
-    private external fun stringFromJNI(): String
-
-    companion object {
-        // Used to load the 'esp32_ble_interface_android' library on application startup.
-        init {
-            System.loadLibrary("esp32_ble_interface_android")
-        }
-    }
 
     // BUTTON CLICKS============================================================================================================
 
-    fun clickOff(view: View) {
-        writeCharacteristic("010") // 01=led 0=OFF
+    fun ledSwitchToggle(view: View)
+    {
+        if(binding.ledSwitchToggle.isChecked)
+        {
+            writeCharacteristic("01001") // 01=led 1=ON
+        }
+        else
+        {
+            writeCharacteristic("01000") // 01=led 0=OFF
+        }
+    }
+    fun ledSwitchToggleExpand(view: View)
+    {
+        if(!binding.ledSwitchExpandedLayout.isVisible)
+        {
+            binding.ledSwitchExpandedLayout.isVisible = true
+        }
+        else
+        {
+            binding.ledSwitchExpandedLayout.isVisible = false
+        }
     }
 
-    fun clickOn(view: View) {
-        writeCharacteristic("011") // 01=led 1=ON
+    private val options = arrayOf("Option 1", "Option 2", "Option 3", "Option 4")
+    private var selectedOption = 0  // Initially selected option index
+
+    fun ledSwitchModeSelect(view: View)
+    {
+
+        dialogOptions?.show()
+
+
     }
 
     fun clickReload(view: View) {
-        writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
+        writeCharacteristic("99002") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
     }
 
     fun clickSave(view: View) {
-        writeCharacteristic("991") //send command to esp to save config
+        writeCharacteristic("99001") //send command to esp to save config
     }
+
+
+    // UI WORKINGS==============================================================================================================
+
+    private fun PrepareOptionsDialog() {
+        Log.d("Dialog", "showDialog() called")
+        if (dialogOptions?.isShowing == true) {
+            Log.d("Dialog", "Dialog is already showing")
+            return
+        }
+
+        dialogOptions = Dialog(this, R.style.DialogStyle).apply {
+            setContentView(R.layout.select_option_dialog)
+            window?.setBackgroundDrawableResource(R.drawable.ble_conncection_dialog_background)
+        }
+
+        dialogOptions?.show()
+        Log.d("Dialog", "DialogOptions shown")
+    }
+
+    private fun configureScrollsETC()
+    {
+        //top header color when scrolling down
+        val scrollView = findViewById<ScrollView>(R.id.ContentScrollView)
+        val constraintLayout = findViewById<ConstraintLayout>(R.id.topHeaderConstraintLayout)
+
+        val startColor = ContextCompat.getColor(this, R.color.AppBackgroundColor)
+        val endColor = ContextCompat.getColor(this, R.color.ColorHeader)
+        val threshold = 0 // adjust as needed for when the color change should start
+        var currentColor = startColor
+
+        // Define durations for each transition
+        val fadeInDuration = 150L // duration for start to end color
+        val fadeOutDuration = 300L // duration for end to start color
+
+        // Define fade-in animation
+        val fadeInAnimation = ValueAnimator.ofObject(ArgbEvaluator(), startColor, endColor).apply {
+            duration = fadeInDuration
+            addUpdateListener { animator ->
+                val animatedValue = animator.animatedValue as Int
+                constraintLayout.setBackgroundColor(animatedValue)
+                window.statusBarColor = animatedValue
+            }
+        }
+
+        // Define fade-out animation
+        val fadeOutAnimation = ValueAnimator.ofObject(ArgbEvaluator(), endColor, startColor).apply {
+            duration = fadeOutDuration
+            addUpdateListener { animator ->
+                val animatedValue = animator.animatedValue as Int
+                constraintLayout.setBackgroundColor(animatedValue)
+                window.statusBarColor = animatedValue
+            }
+        }
+
+        scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            val targetColor = if (scrollY > threshold) endColor else startColor
+
+            if (currentColor != targetColor) {
+                if (targetColor == endColor) {
+                    fadeInAnimation.start()
+                } else {
+                    fadeOutAnimation.start()
+                }
+                currentColor = targetColor
+            }
+        }
+
+        //Brightness Slider
+        val BrighnessSlider: Slider = findViewById(R.id.seekBarBrightness)
+        brightnessSliderText = findViewById(R.id.brightnessValue)
+
+        BrighnessSlider.addOnChangeListener { slider, value, fromUser ->
+            if (fromUser)
+            { brightnessSliderText.text = convertToPercentage(binding.seekBarBrightness.value.toInt(), 255) }
+        }
+
+        BrighnessSlider.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: Slider) {
+                // Handle the start of the slider adjustment
+                //brightnessSliderText.text = "Started tracking touch"
+            }
+
+            override fun onStopTrackingTouch(slider: Slider) {
+                // Handle the end of the slider adjustment
+                //brightnessSliderText.text = "Stopped tracking touch"
+                writeCharacteristic("02"+formatStringAsState(slider.value))
+                brightnessSliderText.text = convertToPercentage(binding.seekBarBrightness.value.toInt(), 255)
+            }
+        })
+
+    }
+
 
     // NAVIGATION===============================================================================================================
 
@@ -217,6 +345,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
+
+    fun formatStringAsState(number: Float): String {
+        val intPart = number.toInt() // Convert to integer to discard the decimal part
+        require(intPart in 1..255) { "Number must be between 1 and 255" }
+        return "%03d".format(intPart)
+    }
+
+    fun convertToPercentage(value: Int, maxValue: Int): String {
+        require(value in 1..maxValue) { "Value must be between 1 and $maxValue" }
+        require(maxValue > 0) { "Max value must be greater than 0" }
+
+        // Convert the value to a percentage (1-100%)
+        val percentage = (value / maxValue.toDouble() * 100).toInt()
+
+        return "$percentage%"
+    }
 
     // BLUETOOTH================================================================================================================
 
@@ -524,7 +668,7 @@ class MainActivity : AppCompatActivity() {
 
         CoroutineScope(Dispatchers.Main).launch {
             delay(500) // Delay to ensure everything is done and ready to proceed
-            writeCharacteristic("999") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
+            writeCharacteristic("99002") //ASKS THE ESP TO SEND ITS CURRENT CONFIGURATION/TOGGLES/DATA
         }
         CoroutineScope(Dispatchers.Main).launch {
             delay(700) // Delay to ensure the loading and applying of the device state is finished
@@ -586,8 +730,8 @@ class MainActivity : AppCompatActivity() {
 
         try {
             val encodedNumber = data.toInt() // Convert received string to integer
-            val command = encodedNumber / 10 // Extract digits (tens and hundreds place)
-            val state = encodedNumber % 10 // Extract last digit (units place)
+            val command = encodedNumber / 1000 // Extract first two digits (command)   EXAMPLE: 01005:   command = 01 = 1,   state= 005 = 5
+            val state = encodedNumber % 1000 // Extract last three digit   (state)     EXAMPLE: 55222:   command = 55 = 55,  state= 222 = 222
             actOnData(command, state)
         } catch (e: NumberFormatException) {
             // Handle exception if the received data is not a valid number
@@ -598,36 +742,40 @@ class MainActivity : AppCompatActivity() {
     private fun actOnData(command: Int, state: Int) {
         Log.d("BLE_NOTIFY", "command: $command state: $state")
 
-        return when (command)
+        runOnUiThread()
         {
-            1 -> // LED
-            {
-                when (state) {
-                    0 -> {
-                        binding.button2.backgroundTintList = getColorStateList(R.color.MainColor) //ON
-                        binding.button3.backgroundTintList = getColorStateList(R.color.MainColorButtonON) //OFF
+            return@runOnUiThread when (command) {
+                1 -> // LED
+                {
+                    when (state) {
+                        0 -> binding.ledSwitchToggle.isChecked = false;
+                        1 -> binding.ledSwitchToggle.isChecked = true;
+                        else -> {}
                     }
-                    1 -> {
-                        binding.button2.backgroundTintList = getColorStateList(R.color.MainColorButtonON) //ON
-                        binding.button3.backgroundTintList = getColorStateList(R.color.MainColor) //OFF
-                    }
-                    else -> {}
                 }
-            }
-            99 ->
-            {
-                when (state) {
-                    9 -> {
-                        if(firstSyncWithEsp) {firstSyncWithEsp = false}
-                        else { runOnUiThread { Toast.makeText(this, "Synced with esp", Toast.LENGTH_SHORT).show() } }
-                    }
-                    1 -> { runOnUiThread { Toast.makeText(this, "Saved state as default", Toast.LENGTH_SHORT).show() } }
-                    else -> {}
+                2 -> // LED POWER (PWM)
+                {
+                    binding.seekBarBrightness.value = state.toFloat()
+                    brightnessSliderText.text = convertToPercentage(binding.seekBarBrightness.value.toInt(), 255)
                 }
+
+                99 -> {
+                    when (state)
+                    {
+                        2 -> {
+                            if (firstSyncWithEsp)
+                                firstSyncWithEsp = false
+                            else
+                                runOnUiThread { Toast.makeText(this, "Synced with esp", Toast.LENGTH_SHORT).show() }
+                        }
+                        1 -> {
+                            runOnUiThread { Toast.makeText( this, "Saved state as default", Toast.LENGTH_SHORT).show() }
+                        }
+                        else -> {}
+                    }
+                }
+                else -> {}
             }
-            else -> {}
-
-
         }
     }
 
