@@ -22,4 +22,5 @@
     <color name="DialogColorIcon">@color/material_dynamic_primary40</color>
 
     <color name="MainColorButtonON">@color/material_dynamic_primary50</color>
+    <color name="checked_color">@color/ColorHeader</color>
 </resources>

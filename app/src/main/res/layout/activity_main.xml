@@ -172,7 +172,7 @@
                         android:textSize="16sp" />
 
                     <TextView
-                        android:id="@+id/textView6"
+                        android:id="@+id/ledmodeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/google_sans"

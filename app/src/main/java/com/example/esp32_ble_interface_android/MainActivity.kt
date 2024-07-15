@@ -33,8 +33,8 @@ import android.widget.ScrollView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import android.os.Handler
-import android.os.Looper
+import android.widget.CheckBox
+import android.widget.LinearLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
 
@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
 
     //UI
     private lateinit var brightnessSliderText: TextView
+    private var checkedItemsLedMode= arrayOf(false,false)
 
     //BLE
     private lateinit var bluetoothManager: BluetoothManager
@@ -71,7 +72,7 @@ class MainActivity : AppCompatActivity() {
     private val connectionRetryDelay = 2000L // 2 seconds
 
     //CONFIGURE THESE TO MATCH THE ESP32 ONES
-    private val esp32Address = "B0:B2:1C:F8:B4:8A" //THE ESP PRINTS THIS ON BOOT TO SERIAL. IF YOUR SERIAL IS BUGGY THEN USE A BLE APP LIKE LIGHT-BLUE TO FIND THE ADDRESS
+    private val esp32Address = "B0:B2:1C:F8:98:0E" //THE ESP PRINTS THIS ON BOOT TO SERIAL. IF YOUR SERIAL IS BUGGY THEN USE A BLE APP LIKE LIGHT-BLUE TO FIND THE ADDRESS
     private val authKey = "your_auth_key" // Replace with your actual auth key
     private val serviceUUID = UUID.fromString("35e2384d-09ba-40ec-8cc2-a491e7bcd763")
     private val authCharacteristicUUID = UUID.fromString("e58b4b34-daa6-4a79-8a4c-50d63e6e767f")
@@ -94,8 +95,7 @@ class MainActivity : AppCompatActivity() {
         configureScrollsETC()
 
 
-        //showDialog()
-        PrepareOptionsDialog()
+        showDialog()
         setDialogState(1)
         startScanning()
     }
@@ -115,6 +115,17 @@ class MainActivity : AppCompatActivity() {
 
 
     // BUTTON CLICKS============================================================================================================
+
+
+    fun ledModeStaticButton(view: View)
+    {
+        writeCharacteristic("03000")
+    }
+
+    fun ledModeBlinkButton(view: View)
+    {
+        writeCharacteristic("03001")
+    }
 
     fun ledSwitchToggle(view: View)
     {
@@ -139,13 +150,75 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val options = arrayOf("Option 1", "Option 2", "Option 3", "Option 4")
-    private var selectedOption = 0  // Initially selected option index
-
     fun ledSwitchModeSelect(view: View)
     {
 
-        dialogOptions?.show()
+       // dialogOptions?.show()
+        val options = arrayOf("Static", "Blinking")
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(62, 36, 62, 0) // Add padding left and right
+        }
+
+        options.forEachIndexed { index, option ->
+            val checkBox = CheckBox(this).apply {
+                text = option
+                isChecked = checkedItemsLedMode[index]
+                buttonDrawable = null // Clear default checkbox drawable
+                background = ContextCompat.getDrawable(this@MainActivity, R.drawable.material_alert_dialog_checkboxes)
+                setPaddingRelative(90, 30, 26, 30) // Adjust padding as needed
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 17f)
+
+                setOnCheckedChangeListener { _, isChecked ->
+                    checkedItemsLedMode[index] = isChecked // Update state array
+                    if (isChecked) // Perform action when checkbox is checked
+                    {
+                        when (index) {
+                            0 -> {
+                                checkedItemsLedMode = arrayOf(true, false)
+                                binding.ledmodeValue.text = "Static"
+                                writeCharacteristic("03000")
+                            }
+                            1 -> {
+                                checkedItemsLedMode = arrayOf(false, true)
+                                binding.ledmodeValue.text = "Blinking"
+                                writeCharacteristic("03001")
+                            }
+                        }
+                        // Dismiss the dialog after setting the checkbox
+                        dialog?.dismiss()
+                    }
+                    else // Perform action when checkbox is unchecked
+                    {
+                        when (index) {
+                            0 -> {
+                                checkedItemsLedMode = arrayOf(true, false)
+                                binding.ledmodeValue.text = "Static"
+                                writeCharacteristic("03000")
+                            }
+                            1 -> {
+                                checkedItemsLedMode = arrayOf(false, true)
+                                binding.ledmodeValue.text = "Blinking"
+                                writeCharacteristic("03001")
+                            }
+                        }
+                        // Dismiss the dialog after setting the checkbox
+                        dialog?.dismiss()
+                    }
+                }
+
+                layout.addView(this)
+            }
+        }
+
+        dialog = MaterialAlertDialogBuilder(this, R.style.DialogStyleBuilder)
+            .setTitle("Led mode")
+            .setView(layout)
+            .setNegativeButton("Cancel") { dialog, which ->
+                dialog.dismiss()
+            }
+            .show()
 
 
     }
@@ -160,22 +233,6 @@ class MainActivity : AppCompatActivity() {
 
 
     // UI WORKINGS==============================================================================================================
-
-    private fun PrepareOptionsDialog() {
-        Log.d("Dialog", "showDialog() called")
-        if (dialogOptions?.isShowing == true) {
-            Log.d("Dialog", "Dialog is already showing")
-            return
-        }
-
-        dialogOptions = Dialog(this, R.style.DialogStyle).apply {
-            setContentView(R.layout.select_option_dialog)
-            window?.setBackgroundDrawableResource(R.drawable.ble_conncection_dialog_background)
-        }
-
-        dialogOptions?.show()
-        Log.d("Dialog", "DialogOptions shown")
-    }
 
     private fun configureScrollsETC()
     {
@@ -758,6 +815,20 @@ class MainActivity : AppCompatActivity() {
                     binding.seekBarBrightness.value = state.toFloat()
                     brightnessSliderText.text = convertToPercentage(binding.seekBarBrightness.value.toInt(), 255)
                 }
+                3 -> // LED MODE (STATIC/BLINK)
+                {
+                    if(state == 0)
+                    {
+                        checkedItemsLedMode= arrayOf(true,false)
+                        binding.ledmodeValue.text = buildString {append("Static")}
+                    }
+                    else
+                    {
+                        checkedItemsLedMode= arrayOf(false,true)
+                        binding.ledmodeValue.text = buildString {append("Blinking")}
+                    }
+                }
+
 
                 99 -> {
                     when (state)
